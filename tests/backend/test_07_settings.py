@@ -1,40 +1,11 @@
 """Notification settings API tests."""
 
-import json
-import time
-from pathlib import Path
-
 import pytest
 
 from apps.core.choices import ShopPlan
 from apps.settings.models import NotificationSettings
 
 from .conftest import authed_client
-
-LOG_PATH = Path(r"c:\Users\USER\Desktop\popy\.cursor\debug-ad6e7c.log")
-
-
-def _agent_log(hypothesis_id: str, message: str, data: dict, run_id: str = "post-fix"):
-    # #region agent log
-    try:
-        with LOG_PATH.open("a", encoding="utf-8") as fh:
-            fh.write(
-                json.dumps(
-                    {
-                        "sessionId": "ad6e7c",
-                        "runId": run_id,
-                        "hypothesisId": hypothesis_id,
-                        "location": "tests/backend/test_07_settings.py",
-                        "message": message,
-                        "data": data,
-                        "timestamp": time.time() * 1000,
-                    }
-                )
-                + "\n"
-            )
-    except Exception:
-        pass
-    # #endregion
 
 
 @pytest.mark.django_db
@@ -43,19 +14,6 @@ class TestSettingsAPI:
         client = authed_client(manager_a, shop_a)
 
         response = client.get("/api/settings/notifications")
-
-        # #region agent log
-        _agent_log(
-            "H1",
-            "GET settings response",
-            {
-                "status": response.status_code,
-                "posCheckoutEmailEnabled": response.data.get("posCheckoutEmailEnabled"),
-                "proEnabled": response.data.get("proEnabled"),
-                "shopPlan": shop_a.plan,
-            },
-        )
-        # #endregion
 
         assert response.status_code == 200
         # Defaults are off; Free shops can view but feature is not Pro-enabled.
@@ -76,18 +34,6 @@ class TestSettingsAPI:
             format="json",
         )
 
-        # #region agent log
-        _agent_log(
-            "H2",
-            "PATCH settings on Pro shop",
-            {
-                "status": response.status_code,
-                "shopPlan": shop_a.plan,
-                "bodyKeys": list(response.data.keys()) if hasattr(response, "data") else [],
-            },
-        )
-        # #endregion
-
         assert response.status_code == 200
         assert response.data["posCheckoutSmsEnabled"] is True
         assert response.data["lowInventoryAlertPhone"] == "94771234567"
@@ -104,18 +50,6 @@ class TestSettingsAPI:
             {"posCheckoutSmsEnabled": True},
             format="json",
         )
-
-        # #region agent log
-        _agent_log(
-            "H2",
-            "PATCH settings on Free shop",
-            {
-                "status": response.status_code,
-                "code": response.data.get("code"),
-                "shopPlan": shop_a.plan,
-            },
-        )
-        # #endregion
 
         assert response.status_code == 403
         assert response.data.get("code") == "PRO_PLAN_REQUIRED"
