@@ -12,7 +12,7 @@ import { GravityStarsBackground } from '@/components/animate-ui/components/backg
 
 const NAV_LINKS = [
   { key: 'features', href: '#features' },
-  { key: 'pricing', href: '#pricing' },
+  // { key: 'pricing', href: '#pricing' },
   { key: 'how', href: '#how' },
   { key: 'contact', href: '#contact' },
 ] as const;
@@ -300,7 +300,7 @@ const HomePage = () => {
         </div>
       </section>
 
-      <section id="pricing" className="band">
+      {/* <section id="pricing" className="band">
         <div className="wrap">
           <div className="section-head reveal">
             <div className="eyebrow">
@@ -338,7 +338,7 @@ const HomePage = () => {
             ))}
           </div>
         </div>
-      </section>
+      </section> */}
 
       <section>
         <div className="wrap">
@@ -369,7 +369,7 @@ const HomePage = () => {
             <div className="foot-col">
               <h4>{t('footer.product')}</h4>
               <a href="#features">{t('nav.features')}</a>
-              <a href="#pricing">{t('nav.pricing')}</a>
+              {/* <a href="#pricing">{t('nav.pricing')}</a> */}
               <a href="#how">{t('nav.how')}</a>
             </div>
             <div className="foot-col">
