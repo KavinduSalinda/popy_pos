@@ -27,6 +27,7 @@ The products page (`/products`) manages the sellable catalog. Each product links
 - Search and paginate the product list.
 - Filter by category and active status.
 - Create, edit, and delete products (permission-gated).
+- Delete of a product with sales/purchase history **deactivates** it (`status=false`) instead of hard-deleting, so history FKs stay intact and the product is hidden from POS.
 - Generate or enter barcodes on the product form.
 - Print barcode labels from the product list or form (client-side label generation).
 

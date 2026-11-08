@@ -28,6 +28,29 @@ class ProductViewSet(ShopScopedMixin, viewsets.ModelViewSet):
     def get_queryset(self):
         return self.filter_by_shop(super().get_queryset())
 
+    def destroy(self, request, *args, **kwargs):
+        from django.db.models.deletion import ProtectedError
+
+        product = self.get_object()
+        try:
+            return super().destroy(request, *args, **kwargs)
+        except ProtectedError:
+            # Soft-delete: keep history FKs intact, hide from POS via status=False
+            product.status = False
+            product.save(update_fields=["status", "updated_at"])
+            return Response(
+                {
+                    "message": (
+                        "Product has sales or purchase history, so it was deactivated "
+                        "instead of permanently deleted."
+                    ),
+                    "statusCode": 200,
+                    "deactivated": True,
+                    "data": ProductSerializer(product).data,
+                },
+                status=200,
+            )
+
 
 class CategoryViewSet(ShopScopedMixin, viewsets.ModelViewSet):
     queryset = Category.objects.annotate(product_count=Count("products")).all()

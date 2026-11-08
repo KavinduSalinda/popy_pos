@@ -1,9 +1,23 @@
+from django.db.models.deletion import ProtectedError
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import exception_handler
 
 
 def custom_exception_handler(exc, context):
+    # Safety net: never return HTML 500 for protected FK deletes
+    if isinstance(exc, ProtectedError):
+        return Response(
+            {
+                "message": (
+                    "Cannot permanently delete this record because it is referenced "
+                    "by other records. Deactivate it instead."
+                ),
+                "statusCode": status.HTTP_409_CONFLICT,
+            },
+            status=status.HTTP_409_CONFLICT,
+        )
+
     response = exception_handler(exc, context)
 
     if response is None:
