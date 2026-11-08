@@ -21,15 +21,21 @@ interface AdjustmentDialogProps {
 }
 
 export const AdjustmentDialog = ({ open, onClose }: AdjustmentDialogProps) => {
-  const { data } = useGetProductsQuery({ page: 1, pageSize: 100 });
+  const { data } = useGetProductsQuery({
+    page: 1,
+    pageSize: 100,
+    status: 'true',
+  });
   const [createAdjustment, { isLoading }] = useCreateAdjustmentMutation();
 
   const productOptions = useMemo(
     () =>
-      (data?.data ?? []).map((p) => ({
-        value: p.id,
-        label: `${p.name} (${p.sku})`,
-      })),
+      (data?.data ?? [])
+        .filter((p) => p.status)
+        .map((p) => ({
+          value: p.id,
+          label: `${p.name} (${p.sku})`,
+        })),
     [data],
   );
 

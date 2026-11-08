@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Button,
   IconButton,
@@ -42,9 +42,17 @@ export const ProductsPage = () => {
     setFilter,
   } = useListParams();
 
-  const { data, isFetching } = useGetProductsQuery(queryParams);
+  const productQuery = useMemo(
+    () => ({ ...queryParams, status: 'true' }),
+    [queryParams],
+  );
+  const { data, isFetching } = useGetProductsQuery(productQuery);
   const { data: categories = [] } = useGetCategoriesQuery();
   const [deleteProduct, { isLoading: deleting }] = useDeleteProductMutation();
+  const activeProducts = useMemo(
+    () => (data?.data ?? []).filter((product) => product.status),
+    [data?.data],
+  );
 
   const [editing, setEditing] = useState<Product | null>(null);
   const [formOpen, setFormOpen] = useState(false);
@@ -218,28 +226,16 @@ export const ProductsPage = () => {
             </MenuItem>
           ))}
         </TextField>
-        <TextField
-          select
-          size="small"
-          label="Status"
-          value={extraFilters.status ?? ''}
-          onChange={(e) => setFilter('status', e.target.value)}
-          sx={{ minWidth: 150 }}
-        >
-          <MenuItem value="">All</MenuItem>
-          <MenuItem value="true">Active</MenuItem>
-          <MenuItem value="false">Inactive</MenuItem>
-        </TextField>
       </Stack>
 
-      {!isFetching && data && data.data.length === 0 ? (
+      {!isFetching && activeProducts.length === 0 ? (
         <EmptyState
           title="No products found"
           description="Try adjusting your filters or add your first product."
         />
       ) : (
         <DataTable
-          rows={data?.data ?? []}
+          rows={activeProducts}
           columns={columns}
           loading={isFetching}
           rowCount={data?.total ?? 0}
