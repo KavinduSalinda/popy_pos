@@ -16,7 +16,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "prepare": "husky",
+    "prepare": "husky || true",
     "electron:dev": "concurrently -k \"cross-env ELECTRON=true vite\" \"wait-on tcp:5173 && electron electron/main.cjs\"",
     "electron:preview": "cross-env ELECTRON=true tsc -b && cross-env ELECTRON=true vite build && cross-env NODE_ENV=production electron electron/main.cjs",
     "electron:pack": "cross-env ELECTRON=true tsc -b && cross-env ELECTRON=true vite build && electron-builder --dir",
