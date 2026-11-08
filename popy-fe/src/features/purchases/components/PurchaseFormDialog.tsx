@@ -66,7 +66,11 @@ const PurchaseFormBody = ({ purchase, onClose }: PurchaseFormBodyProps) => {
   const isEdit = Boolean(purchase);
 
   const { data: suppliers } = useGetSuppliersQuery({ page: 1, pageSize: 100 });
-  const { data: products } = useGetProductsQuery({ page: 1, pageSize: 100 });
+  const { data: products } = useGetProductsQuery({
+    page: 1,
+    pageSize: 100,
+    status: 'true',
+  });
   const [createPurchase, { isLoading: creating }] = useCreatePurchaseMutation();
   const [updatePurchase, { isLoading: updating }] = useUpdatePurchaseMutation();
 
@@ -76,10 +80,12 @@ const PurchaseFormBody = ({ purchase, onClose }: PurchaseFormBodyProps) => {
   );
   const productOptions = useMemo(
     () =>
-      (products?.data ?? []).map((p) => ({
-        value: p.id,
-        label: `${p.name} (${p.sku})`,
-      })),
+      (products?.data ?? [])
+        .filter((p) => p.status)
+        .map((p) => ({
+          value: p.id,
+          label: `${p.name} (${p.sku})`,
+        })),
     [products],
   );
 
