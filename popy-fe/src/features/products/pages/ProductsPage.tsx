@@ -63,8 +63,15 @@ export const ProductsPage = () => {
   const handleDelete = async () => {
     if (!toDelete) return;
     try {
-      await deleteProduct(toDelete.id).unwrap();
-      toast.success('Product deleted');
+      const result = await deleteProduct(toDelete.id).unwrap();
+      if (result && typeof result === 'object' && result.deactivated) {
+        toast.success(
+          result.message ??
+            'Product deactivated because it has sales or purchase history.',
+        );
+      } else {
+        toast.success('Product deleted');
+      }
     } catch (error) {
       toast.error(getErrorMessage(error));
     } finally {
