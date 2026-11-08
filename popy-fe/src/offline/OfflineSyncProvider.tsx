@@ -1,7 +1,5 @@
 import {
-  createContext,
   useCallback,
-  useContext,
   useEffect,
   useRef,
   useState,
@@ -11,28 +9,7 @@ import { useAppSelector } from '@/app/hooks';
 import { getQueueSummary } from './queue';
 import { bootstrapOfflineData, runFullSync } from './syncEngine';
 import { useOnlineStatus } from './hooks/useOnlineStatus';
-
-interface OfflineSyncContextValue {
-  isSyncing: boolean;
-  pendingCount: number;
-  lastMessage: string | null;
-  downloadCatalog: () => Promise<boolean>;
-  syncNow: () => Promise<void>;
-  refreshCounts: () => Promise<void>;
-}
-
-const defaultOfflineSyncContext: OfflineSyncContextValue = {
-  isSyncing: false,
-  pendingCount: 0,
-  lastMessage: null,
-  downloadCatalog: async () => false,
-  syncNow: async () => undefined,
-  refreshCounts: async () => undefined,
-};
-
-const OfflineSyncContext = createContext<OfflineSyncContextValue>(
-  defaultOfflineSyncContext,
-);
+import { OfflineSyncContext } from './offlineSyncContext';
 
 export const OfflineSyncProvider = ({ children }: { children: ReactNode }) => {
   const { isOnline } = useOnlineStatus();
@@ -86,15 +63,29 @@ export const OfflineSyncProvider = ({ children }: { children: ReactNode }) => {
   }, [isOnline, refreshCounts, shopId]);
 
   useEffect(() => {
-    void refreshCounts();
-  }, [refreshCounts]);
+    if (!shopId) return;
+    let cancelled = false;
+    void getQueueSummary(shopId).then((summary) => {
+      if (!cancelled) setPendingCount(summary.total);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [shopId]);
 
   useEffect(() => {
     if (!isAuthenticated || !isOnline || !shopId) return;
+    let cancelled = false;
     void bootstrapOfflineData(shopId)
-      .then(() => refreshCounts())
+      .then(() => getQueueSummary(shopId))
+      .then((summary) => {
+        if (!cancelled) setPendingCount(summary.total);
+      })
       .catch(() => undefined);
-  }, [isAuthenticated, isOnline, refreshCounts, shopId]);
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, isOnline, shopId]);
 
   useEffect(() => {
     const cameOnline = isOnline && wasOfflineRef.current;
@@ -119,5 +110,3 @@ export const OfflineSyncProvider = ({ children }: { children: ReactNode }) => {
     </OfflineSyncContext.Provider>
   );
 };
-
-export const useOfflineSyncContext = () => useContext(OfflineSyncContext);

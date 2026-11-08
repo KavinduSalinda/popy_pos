@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import {
   Alert,
   Box,
@@ -108,10 +108,6 @@ const NotificationSettingsForm = ({
   const [form, setForm] = useState(initialSettings);
   const [updateSettings, { isLoading: saving }] =
     useUpdateNotificationSettingsMutation();
-
-  useEffect(() => {
-    setForm(initialSettings);
-  }, [initialSettings]);
 
   const handleSave = async () => {
     if (!isPro) {

@@ -6,6 +6,7 @@ export * from './syncEngine';
 export * from './conflictResolver';
 export * from './offlineAuth';
 export * from './OfflineSyncProvider';
+export * from './hooks/useOfflineSyncContext';
 export * from './hooks/useOnlineStatus';
 export * from './hooks/useOfflineSync';
 export * from './hooks/useOfflineCatalog';

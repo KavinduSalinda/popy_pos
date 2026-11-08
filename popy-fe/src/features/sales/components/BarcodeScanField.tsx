@@ -54,10 +54,13 @@ export const BarcodeScanField = ({
   });
   const autoFocusEnabled = !isNarrow && !pauseAutoFocus && !disabled;
   const autoFocusEnabledRef = useRef(autoFocusEnabled);
-  autoFocusEnabledRef.current = autoFocusEnabled;
 
   const inputRef = useRef<HTMLInputElement>(null);
   const valueRef = useRef('');
+
+  useEffect(() => {
+    autoFocusEnabledRef.current = autoFocusEnabled;
+  }, [autoFocusEnabled]);
 
   const focusIfAllowed = useCallback(() => {
     if (!autoFocusEnabledRef.current || isNarrowViewport()) return;

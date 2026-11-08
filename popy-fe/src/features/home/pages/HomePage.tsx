@@ -60,14 +60,6 @@ const TESTIMONIALS = [
   { key: 'six', initials: 'AF', name: 'Amali F.' },
 ] as const;
 
-const PLANS = [
-  { key: 'starter', amount: 'LKR 4,900', featured: false },
-  { key: 'business', amount: 'LKR 12,900', featured: true },
-  { key: 'enterprise', amount: null, featured: false },
-] as const;
-
-const PLAN_ITEMS = ['item1', 'item2', 'item3', 'item4'] as const;
-
 const RECEIPT_LINES = [
   { qty: '1x', name: 'Coca-Cola 1.5L', price: '420.00' },
   { qty: '2x', name: 'Anchor Milk Powder', price: '2,160.00' },

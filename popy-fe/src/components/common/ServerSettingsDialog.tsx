@@ -37,32 +37,26 @@ interface ServerSettingsDialogProps {
   onSaved?: (config: ServerConfig) => void;
 }
 
-export const ServerSettingsDialog = ({
-  open,
+const ServerSettingsDialogBody = ({
   onClose,
   onSaved,
-}: ServerSettingsDialogProps) => {
-  const [config, setConfig] = useState<ServerConfig>(getServerConfig);
-  const [customUrl, setCustomUrl] = useState('');
+}: {
+  onClose: () => void;
+  onSaved?: (config: ServerConfig) => void;
+}) => {
+  const initial = getServerConfig();
+  const [config, setConfig] = useState<ServerConfig>(initial);
+  const [customUrl, setCustomUrl] = useState(
+    initial.mode === 'custom'
+      ? initial.url
+      : initial.url || DEFAULT_LOCAL_API_URL,
+  );
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{
     ok: boolean;
     message: string;
     latencyMs?: number;
   } | null>(null);
-
-  useEffect(() => {
-    if (open) {
-      const current = getServerConfig();
-      setConfig(current);
-      if (current.mode === 'custom') {
-        setCustomUrl(current.url);
-      } else {
-        setCustomUrl(current.url || DEFAULT_LOCAL_API_URL);
-      }
-      setTestResult(null);
-    }
-  }, [open]);
 
   const getActiveUrl = (mode: ServerMode): string => {
     switch (mode) {
@@ -76,8 +70,7 @@ export const ServerSettingsDialog = ({
   };
 
   const handleModeChange = (mode: ServerMode) => {
-    const nextUrl = getActiveUrl(mode);
-    setConfig({ mode, url: nextUrl });
+    setConfig({ mode, url: getActiveUrl(mode) });
     setTestResult(null);
   };
 
@@ -87,18 +80,16 @@ export const ServerSettingsDialog = ({
     setTesting(true);
     setTestResult(null);
     try {
-      const result = await testServerConnection(urlToTest);
-      setTestResult(result);
+      setTestResult(await testServerConnection(urlToTest));
     } finally {
       setTesting(false);
     }
   };
 
   const handleSave = () => {
-    const targetUrl = getActiveUrl(config.mode);
     const newConfig: ServerConfig = {
       mode: config.mode,
-      url: targetUrl,
+      url: getActiveUrl(config.mode),
     };
     setServerConfig(newConfig);
     onSaved?.(newConfig);
@@ -106,7 +97,7 @@ export const ServerSettingsDialog = ({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <>
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
         <DnsIcon color="primary" />
         Backend Server Connection
@@ -117,7 +108,8 @@ export const ServerSettingsDialog = ({
           {isElectron() && (
             <Alert severity="info" variant="outlined">
               Running in Desktop Mode. By default, local desktop uses{' '}
-              <strong>Localhost (127.0.0.1:8000)</strong> backend. You can also switch to Cloud server.
+              <strong>Localhost (127.0.0.1:8000)</strong> backend. You can also
+              switch to Cloud server.
             </Alert>
           )}
 
@@ -139,7 +131,8 @@ export const ServerSettingsDialog = ({
                       Localhost Backend (Offline / Local Shop Server)
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      {DEFAULT_LOCAL_API_URL} (Django running locally on this machine)
+                      {DEFAULT_LOCAL_API_URL} (Django running locally on this
+                      machine)
                     </Typography>
                   </Box>
                 }
@@ -171,7 +164,8 @@ export const ServerSettingsDialog = ({
                       Custom Server URL
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      Connect to a local network IP, VPN, or custom backend domain
+                      Connect to a local network IP, VPN, or custom backend
+                      domain
                     </Typography>
                   </Box>
                 }
@@ -207,17 +201,25 @@ export const ServerSettingsDialog = ({
             }}
           >
             <Box>
-              <Typography variant="caption" color="text.secondary" display="block">
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                display="block"
+              >
                 Active Endpoint Target:
               </Typography>
-              <Typography variant="body2" fontFamily="monospace" fontWeight={600}>
+              <Typography
+                variant="body2"
+                fontFamily="monospace"
+                fontWeight={600}
+              >
                 {getActiveUrl(config.mode)}
               </Typography>
             </Box>
             <Button
               variant="outlined"
               size="small"
-              onClick={handleTestConnection}
+              onClick={() => void handleTestConnection()}
               disabled={testing}
               startIcon={testing ? <CircularProgress size={14} /> : undefined}
             >
@@ -246,9 +248,21 @@ export const ServerSettingsDialog = ({
           Apply Settings
         </Button>
       </DialogActions>
-    </Dialog>
+    </>
   );
 };
+
+export const ServerSettingsDialog = ({
+  open,
+  onClose,
+  onSaved,
+}: ServerSettingsDialogProps) => (
+  <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    {open ? (
+      <ServerSettingsDialogBody onClose={onClose} onSaved={onSaved} />
+    ) : null}
+  </Dialog>
+);
 
 export const ServerConnectionBadge = ({
   onClick,

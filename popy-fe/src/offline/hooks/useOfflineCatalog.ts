@@ -22,10 +22,18 @@ export const useOfflineCatalog = (search: string) => {
   }, [search, shopId]);
 
   useEffect(() => {
-    if (!isOnline) {
-      void loadOfflineProducts();
-    }
-  }, [isOnline, loadOfflineProducts]);
+    if (isOnline || !shopId) return;
+    let cancelled = false;
+    void searchCachedProducts(shopId, search).then((rows) => {
+      if (!cancelled) {
+        setProducts(rows);
+        setIsLoading(false);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOnline, shopId, search]);
 
   return {
     offlineProducts: products,

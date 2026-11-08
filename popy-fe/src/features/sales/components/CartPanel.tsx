@@ -161,7 +161,7 @@ export const CartPanel = ({ onCheckout }: CartPanelProps) => {
                       <Remove fontSize="small" />
                     </IconButton>
                     <CartQuantityInput
-                      productId={item.productId}
+                      key={`${item.productId}-${item.quantity}`}
                       quantity={item.quantity}
                       max={item.stockQuantity}
                       unit={sellUnit}
@@ -235,13 +235,11 @@ export const CartPanel = ({ onCheckout }: CartPanelProps) => {
 };
 
 const CartQuantityInput = ({
-  productId,
   quantity,
   max,
   unit,
   onCommit,
 }: {
-  productId: string | number;
   quantity: number;
   max: number;
   unit?: string;
@@ -249,10 +247,6 @@ const CartQuantityInput = ({
 }) => {
   const fractional = allowsFractionalQuantity(unit);
   const [draft, setDraft] = useState(String(quantity));
-
-  useEffect(() => {
-    setDraft(String(quantity));
-  }, [quantity, productId]);
 
   const commit = () => {
     const normalized = draft.trim().replace(',', '.');

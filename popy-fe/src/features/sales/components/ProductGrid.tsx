@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Box, IconButton, Stack, Tooltip, useMediaQuery } from '@mui/material';
 import AddShoppingCart from '@mui/icons-material/AddShoppingCart';
 import type { GridColDef, GridPaginationModel } from '@mui/x-data-grid';
@@ -41,11 +41,11 @@ export const ProductGrid = ({
   });
   const [search, setSearch] = useState('');
   const [searchFocused, setSearchFocused] = useState(false);
-  const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
-    page: 0,
-    pageSize: isMobile ? MOBILE_PAGE_SIZE : DESKTOP_PAGE_SIZE,
-  });
+  const [page, setPage] = useState(0);
+  const [prevSearch, setPrevSearch] = useState('');
   const debouncedSearch = useDebounce(search, 350);
+  const pageSize = isMobile ? MOBILE_PAGE_SIZE : DESKTOP_PAGE_SIZE;
+  const paginationModel: GridPaginationModel = { page, pageSize };
   const { isOffline } = useOnlineStatus();
   const { offlineProducts, offlineLoading } = useOfflineCatalog(debouncedSearch);
   const { data: onlineData = [], isFetching: onlineFetching } =
@@ -54,12 +54,10 @@ export const ProductGrid = ({
   const data = isOffline ? offlineProducts : onlineData;
   const isFetching = isOffline ? offlineLoading : onlineFetching;
 
-  useEffect(() => {
-    setPaginationModel((prev) => ({
-      page: 0,
-      pageSize: isMobile ? MOBILE_PAGE_SIZE : prev.pageSize || DESKTOP_PAGE_SIZE,
-    }));
-  }, [isMobile, debouncedSearch]);
+  if (debouncedSearch !== prevSearch) {
+    setPrevSearch(debouncedSearch);
+    if (page !== 0) setPage(0);
+  }
 
   const addToCart = (product: PosProduct) => {
     if (product.stockQuantity <= 0) {
@@ -193,7 +191,7 @@ export const ProductGrid = ({
             loading={isFetching}
             paginationMode="client"
             paginationModel={paginationModel}
-            onPaginationModelChange={setPaginationModel}
+            onPaginationModelChange={(model) => setPage(model.page)}
             autoHeight={false}
             height="100%"
             getRowClassName={(params) =>

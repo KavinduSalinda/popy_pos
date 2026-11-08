@@ -1,4 +1,4 @@
-import { useOfflineSyncContext } from '../OfflineSyncProvider';
+import { useOfflineSyncContext } from './useOfflineSyncContext';
 import { useOnlineStatus } from './useOnlineStatus';
 
 export const useOfflineSync = () => {

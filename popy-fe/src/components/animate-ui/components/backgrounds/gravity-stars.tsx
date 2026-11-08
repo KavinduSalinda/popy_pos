@@ -121,18 +121,12 @@ function GravityStarsBackground({
       const canvas = canvasRef.current;
       if (!canvas) return;
       const rect = canvas.getBoundingClientRect();
-      let clientX = 0;
-      let clientY = 0;
-      if ('touches' in e) {
-        const t = e.touches[0];
-        if (!t) return;
-        clientX = t.clientX;
-        clientY = t.clientY;
-      } else {
-        clientX = e.clientX;
-        clientY = e.clientY;
-      }
-      mouseRef.current = { x: clientX - rect.left, y: clientY - rect.top };
+      const point = 'touches' in e ? e.touches[0] : e;
+      if (!point) return;
+      mouseRef.current = {
+        x: point.clientX - rect.left,
+        y: point.clientY - rect.top,
+      };
     },
     [],
   );
@@ -284,16 +278,6 @@ function GravityStarsBackground({
     [dpr, glowIntensity, readColor],
   );
 
-  const animate = React.useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    updateStars();
-    drawStars(ctx);
-    animRef.current = requestAnimationFrame(animate);
-  }, [updateStars, drawStars]);
-
   React.useEffect(() => {
     resizeCanvas();
     const container = containerRef.current;
@@ -335,13 +319,24 @@ function GravityStarsBackground({
   ]);
 
   React.useEffect(() => {
-    if (animRef.current) cancelAnimationFrame(animRef.current);
-    animRef.current = requestAnimationFrame(animate);
+    let frameId = 0;
+    const loop = () => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      updateStars();
+      drawStars(ctx);
+      frameId = requestAnimationFrame(loop);
+      animRef.current = frameId;
+    };
+    frameId = requestAnimationFrame(loop);
+    animRef.current = frameId;
     return () => {
-      if (animRef.current) cancelAnimationFrame(animRef.current);
+      cancelAnimationFrame(frameId);
       animRef.current = null;
     };
-  }, [animate]);
+  }, [updateStars, drawStars]);
 
   return (
     <div
