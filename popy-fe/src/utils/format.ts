@@ -24,6 +24,13 @@ export const formatCurrency = (value: unknown): string => {
 export const formatNumber = (value: unknown): string =>
   new Intl.NumberFormat(APP_CONFIG.locale).format(toNumber(value));
 
+/** Stock counts. Whole units stay whole so 20.000 displays as 20, not 20,000. */
+export const formatQuantity = (value: unknown): string =>
+  new Intl.NumberFormat(APP_CONFIG.locale, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 3,
+  }).format(toNumber(value));
+
 export const formatDate = (
   value: string | number | Date | null | undefined,
   template = 'DD MMM YYYY',

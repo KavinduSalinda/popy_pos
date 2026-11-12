@@ -4,6 +4,7 @@ import {
   formatDate,
   formatNumber,
   formatPercent,
+  formatQuantity,
 } from './format';
 
 describe('format utilities', () => {
@@ -22,6 +23,13 @@ describe('format utilities', () => {
 
   it('formats string numbers with grouping', () => {
     expect(formatNumber('10000')).toBe('10,000');
+  });
+
+  it('shows stock quantities as units, not thousandths', () => {
+    expect(formatQuantity('20.000')).toBe('20');
+    expect(formatQuantity('32.000')).toBe('32');
+    expect(formatQuantity('1.250')).toBe('1.25');
+    expect(formatQuantity(0)).toBe('0');
   });
 
   it('formats dates', () => {

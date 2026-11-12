@@ -9,16 +9,16 @@ import {
   StatusChip,
 } from '@/components/common';
 import { DataTable } from '@/components/tables';
-import { useListParams } from '@/hooks';
+import { useListParams, usePermissions } from '@/hooks';
 import { PERMISSIONS } from '@/constants';
-import { formatDateTime } from '@/utils';
+import { formatDateTime, formatQuantity } from '@/utils';
 import {
   useGetInventoryQuery,
   useGetStockTransactionsQuery,
 } from '../inventoryApi';
 import { InventoryTable } from '../components/InventoryTable';
 import { AdjustmentDialog } from '../components/AdjustmentDialog';
-import type { StockTransaction } from '../types';
+import type { InventoryItem, StockTransaction } from '../types';
 
 type TabKey = 'overview' | 'transactions' | 'low' | 'out';
 
@@ -29,7 +29,13 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: 'out', label: 'Out of stock' },
 ];
 
-const InventoryListTab = ({ statusFilter }: { statusFilter?: string }) => {
+const InventoryListTab = ({
+  statusFilter,
+  onAdjust,
+}: {
+  statusFilter?: string;
+  onAdjust?: (item: InventoryItem) => void;
+}) => {
   const {
     search,
     setSearch,
@@ -59,6 +65,7 @@ const InventoryListTab = ({ statusFilter }: { statusFilter?: string }) => {
         rowCount={data?.total ?? 0}
         paginationModel={paginationModel}
         onPaginationModelChange={setPaginationModel}
+        onRowClick={onAdjust}
       />
     </Stack>
   );
@@ -82,8 +89,20 @@ const TransactionsTab = () => {
       width: 140,
       renderCell: (params) => <StatusChip label={params.row.type} />,
     },
-    { field: 'quantity', headerName: 'Qty', width: 100, type: 'number' },
-    { field: 'balance', headerName: 'Balance', width: 110, type: 'number' },
+    {
+      field: 'quantity',
+      headerName: 'Qty',
+      width: 100,
+      type: 'number',
+      valueFormatter: (value) => formatQuantity(value),
+    },
+    {
+      field: 'balance',
+      headerName: 'Balance',
+      width: 110,
+      type: 'number',
+      valueFormatter: (value) => formatQuantity(value),
+    },
     {
       field: 'note',
       headerName: 'Note',
@@ -108,6 +127,18 @@ const TransactionsTab = () => {
 export const InventoryPage = () => {
   const [tab, setTab] = useState<TabKey>('overview');
   const [adjustOpen, setAdjustOpen] = useState(false);
+  const [adjustItem, setAdjustItem] = useState<InventoryItem | null>(null);
+  const { hasPermission } = usePermissions();
+  const canAdjust = hasPermission(PERMISSIONS.INVENTORY_ADJUST);
+
+  const openAdjustment = (item?: InventoryItem) => {
+    setAdjustItem(item ?? null);
+    setAdjustOpen(true);
+  };
+
+  const closeAdjustment = () => {
+    setAdjustOpen(false);
+  };
 
   return (
     <>
@@ -119,7 +150,7 @@ export const InventoryPage = () => {
             <Button
               variant="contained"
               startIcon={<Tune />}
-              onClick={() => setAdjustOpen(true)}
+              onClick={() => openAdjustment()}
             >
               New adjustment
             </Button>
@@ -140,14 +171,27 @@ export const InventoryPage = () => {
         </Tabs>
       </Box>
 
-      {tab === 'overview' && <InventoryListTab />}
+      {tab === 'overview' && (
+        <InventoryListTab onAdjust={canAdjust ? openAdjustment : undefined} />
+      )}
       {tab === 'transactions' && <TransactionsTab />}
-      {tab === 'low' && <InventoryListTab statusFilter="low" />}
-      {tab === 'out' && <InventoryListTab statusFilter="out" />}
+      {tab === 'low' && (
+        <InventoryListTab
+          statusFilter="low"
+          onAdjust={canAdjust ? openAdjustment : undefined}
+        />
+      )}
+      {tab === 'out' && (
+        <InventoryListTab
+          statusFilter="out"
+          onAdjust={canAdjust ? openAdjustment : undefined}
+        />
+      )}
 
       <AdjustmentDialog
         open={adjustOpen}
-        onClose={() => setAdjustOpen(false)}
+        item={adjustItem}
+        onClose={closeAdjustment}
       />
     </>
   );

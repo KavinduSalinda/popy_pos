@@ -25,7 +25,7 @@ import { ConfirmDialog } from '@/components/dialogs';
 import { BarcodePrintDialog } from '@/components/barcode';
 import { useListParams } from '@/hooks';
 import { PERMISSIONS } from '@/constants';
-import { formatCurrency, getErrorMessage } from '@/utils';
+import { formatCurrency, formatQuantity, getErrorMessage } from '@/utils';
 import { useGetCategoriesQuery } from '@/features/categories/categoriesApi';
 import { useDeleteProductMutation, useGetProductsQuery } from '../productsApi';
 import { ProductFormDialog } from '../components/ProductFormDialog';
@@ -107,6 +107,7 @@ export const ProductsPage = () => {
       headerName: 'Stock',
       width: 100,
       type: 'number',
+      valueFormatter: (value) => formatQuantity(value),
     },
     {
       field: 'status',

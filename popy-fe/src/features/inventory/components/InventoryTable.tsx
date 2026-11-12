@@ -2,6 +2,7 @@ import type { GridColDef, GridPaginationModel } from '@mui/x-data-grid';
 import type { ChipProps } from '@mui/material';
 import { DataTable } from '@/components/tables';
 import { StatusChip } from '@/components/common';
+import { formatQuantity } from '@/utils';
 import type { InventoryItem, StockStatus } from '../types';
 
 const STATUS_LABEL: Record<StockStatus, string> = {
@@ -22,6 +23,7 @@ interface InventoryTableProps {
   rowCount: number;
   paginationModel: GridPaginationModel;
   onPaginationModelChange: (model: GridPaginationModel) => void;
+  onRowClick?: (item: InventoryItem) => void;
 }
 
 export const InventoryTable = ({
@@ -30,6 +32,7 @@ export const InventoryTable = ({
   rowCount,
   paginationModel,
   onPaginationModelChange,
+  onRowClick,
 }: InventoryTableProps) => {
   const columns: GridColDef<InventoryItem>[] = [
     { field: 'productName', headerName: 'Product', flex: 1, minWidth: 200 },
@@ -39,6 +42,7 @@ export const InventoryTable = ({
       headerName: 'On hand',
       width: 120,
       type: 'number',
+      valueFormatter: (value) => formatQuantity(value),
     },
     {
       field: 'reorderLevel',
@@ -67,6 +71,9 @@ export const InventoryTable = ({
       rowCount={rowCount}
       paginationModel={paginationModel}
       onPaginationModelChange={onPaginationModelChange}
+      onRowClick={
+        onRowClick ? (params) => onRowClick(params.row) : undefined
+      }
     />
   );
 };
