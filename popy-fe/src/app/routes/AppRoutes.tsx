@@ -63,6 +63,9 @@ const AttendancePage = lazy(
 const SettingsPage = lazy(
   () => import('@/features/settings/pages/SettingsPage'),
 );
+const HandbookPage = lazy(
+  () => import('@/features/handbook/pages/HandbookPage'),
+);
 
 export const AppRoutes = () => (
   <Routes>
@@ -217,6 +220,14 @@ export const AppRoutes = () => (
         element={
           <ProtectedRoute permission={PERMISSIONS.SETTINGS_MANAGE}>
             <SettingsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path={ROUTES.HANDBOOK}
+        element={
+          <ProtectedRoute>
+            <HandbookPage />
           </ProtectedRoute>
         }
       />

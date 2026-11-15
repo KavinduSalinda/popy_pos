@@ -9,7 +9,10 @@ type LanguageSwitcherProps = {
 
 export const LanguageSwitcher = ({ className }: LanguageSwitcherProps) => {
   const { t } = useTranslation('common');
-  const { locale, setLocale, locales, labels } = useLocale();
+  const { locale, setLocale, locales, labels, languageSwitchEnabled } =
+    useLocale();
+
+  if (!languageSwitchEnabled) return null;
 
   return (
     <div

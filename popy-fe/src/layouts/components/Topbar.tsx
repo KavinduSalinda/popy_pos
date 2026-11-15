@@ -8,6 +8,8 @@ import {
   ListItemIcon,
   Menu,
   MenuItem,
+  ToggleButton,
+  ToggleButtonGroup,
   Toolbar,
   Tooltip,
   Typography,
@@ -19,6 +21,7 @@ import LightMode from '@mui/icons-material/LightMode';
 import DarkMode from '@mui/icons-material/DarkMode';
 import Logout from '@mui/icons-material/Logout';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import {
   toggleMobileSidebar,
@@ -26,6 +29,9 @@ import {
   toggleThemeMode,
 } from '@/app/uiSlice';
 import { useAuth } from '@/hooks/useAuth';
+import { useLocale } from '@/hooks/useLocale';
+import type { Locale } from '@/i18n/languages';
+import { SINHALA_FONT } from '@/features/handbook/content';
 import { useLogoutMutation } from '@/features/auth/authApi';
 import { ShopSwitcher } from '@/features/shops/components/ShopSwitcher';
 import { ROLE_LABELS } from '@/constants/roles';
@@ -38,6 +44,9 @@ export const Topbar = () => {
   const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
   const themeMode = useAppSelector((state) => state.ui.themeMode);
   const { user } = useAuth();
+  const { t } = useTranslation('common');
+  const { locale, setLocale, locales, labels, languageSwitchEnabled } =
+    useLocale();
   const [logout] = useLogoutMutation();
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
 
@@ -85,6 +94,34 @@ export const Topbar = () => {
         <Box sx={{ flexGrow: 1 }} />
 
         <ShopSwitcher />
+
+        {languageSwitchEnabled && (
+          <ToggleButtonGroup
+            exclusive
+            size="small"
+            value={locale}
+            aria-label={t('language.switchTo')}
+            onChange={(_event, value: Locale | null) => {
+              if (value) setLocale(value);
+            }}
+          >
+            {locales.map((code) => (
+              <ToggleButton
+                key={code}
+                value={code}
+                aria-label={labels[code].native}
+                sx={{
+                  px: 1.25,
+                  py: 0.5,
+                  fontFamily: code === 'si' ? SINHALA_FONT : undefined,
+                  fontWeight: 700,
+                }}
+              >
+                {labels[code].short}
+              </ToggleButton>
+            ))}
+          </ToggleButtonGroup>
+        )}
 
         <Tooltip title="Toggle theme">
           <IconButton

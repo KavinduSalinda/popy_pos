@@ -1,5 +1,6 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
+import { APP_CONFIG } from '@/constants/config';
 import { storage } from '@/services/storage';
 import {
   DEFAULT_LOCALE,
@@ -32,7 +33,7 @@ void i18n.use(initReactI18next).init({
     en: { common: enCommon, home: enHome },
     si: { common: siCommon, home: siHome },
   },
-  lng: getInitialLocale(),
+  lng: APP_CONFIG.languageSwitchEnabled ? getInitialLocale() : DEFAULT_LOCALE,
   fallbackLng: DEFAULT_LOCALE,
   defaultNS: 'common',
   ns: ['common', 'home'],
@@ -46,6 +47,10 @@ if (typeof document !== 'undefined') {
 
 i18n.on('languageChanged', (lng) => {
   if (!isLocale(lng)) return;
+  if (!APP_CONFIG.languageSwitchEnabled) {
+    applyDocumentLocale(DEFAULT_LOCALE);
+    return;
+  }
   storage.set(LOCALE_STORAGE_KEY, lng);
   applyDocumentLocale(lng);
 });

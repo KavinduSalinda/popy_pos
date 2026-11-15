@@ -26,6 +26,7 @@ export const ROUTES = {
   REPORTS: '/reports',
   SETTINGS: '/settings',
   ATTENDANCE: '/attendance',
+  HANDBOOK: '/handbook',
 
   // Errors
   FORBIDDEN: '/403',

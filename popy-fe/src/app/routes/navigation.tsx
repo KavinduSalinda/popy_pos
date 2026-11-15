@@ -13,6 +13,7 @@ import ManageAccounts from '@mui/icons-material/ManageAccounts';
 import Assessment from '@mui/icons-material/Assessment';
 import Settings from '@mui/icons-material/Settings';
 import EventAvailable from '@mui/icons-material/EventAvailable';
+import MenuBook from '@mui/icons-material/MenuBook';
 import { PERMISSIONS, type Permission } from '@/constants/permissions';
 import { ROUTES } from '@/constants/routes';
 
@@ -25,6 +26,8 @@ export interface NavItem {
   anyOf?: Permission[];
   /** Feature requires the current shop to be on the Pro plan. */
   requiresPro?: boolean;
+  /** Show for every signed-in user, with no permission check. */
+  alwaysVisible?: boolean;
 }
 
 export const NAV_ITEMS: NavItem[] = [
@@ -113,5 +116,11 @@ export const NAV_ITEMS: NavItem[] = [
     icon: Settings,
     permission: PERMISSIONS.SETTINGS_MANAGE,
     requiresPro: true,
+  },
+  {
+    label: 'Handbook',
+    path: ROUTES.HANDBOOK,
+    icon: MenuBook,
+    alwaysVisible: true,
   },
 ];

@@ -5,6 +5,8 @@ interface ImportMetaEnv {
   readonly VITE_CURRENCY?: string;
   readonly VITE_LOCALE?: string;
   readonly VITE_TAX_RATE?: string;
+  /** true/false. When false, the EN / සිං switch is hidden and the app stays in English. */
+  readonly VITE_LANGUAGE_SWITCH?: string;
 }
 
 interface ImportMeta {

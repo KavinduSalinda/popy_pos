@@ -6,6 +6,10 @@ export const APP_CONFIG = {
   currency: import.meta.env.VITE_CURRENCY ?? 'USD',
   locale: import.meta.env.VITE_LOCALE ?? 'en-US',
   taxRate: Number(import.meta.env.VITE_TAX_RATE ?? '0.1'),
+  /** EN / සිං switch. Set VITE_LANGUAGE_SWITCH=false to lock the app to English. */
+  languageSwitchEnabled: !['0', 'false', 'off', 'no'].includes(
+    (import.meta.env.VITE_LANGUAGE_SWITCH ?? 'true').trim().toLowerCase(),
+  ),
 } as const;
 
 export const STORAGE_KEYS = {

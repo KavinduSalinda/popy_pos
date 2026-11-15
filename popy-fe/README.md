@@ -34,6 +34,7 @@ App runs at `http://localhost:5173`.
 | `VITE_CURRENCY` | ISO currency code | `USD` |
 | `VITE_LOCALE` | BCP-47 locale | `en-US` |
 | `VITE_TAX_RATE` | Checkout tax rate (e.g. `0.1` = 10%) | `0.1` |
+| `VITE_LANGUAGE_SWITCH` | Show the EN / සිං switch. `false` locks the app to English | `true` |
 
 Configure a dev proxy in `vite.config.ts` if your API runs on another origin.
 

@@ -17,8 +17,10 @@ import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { setMobileSidebarOpen } from '@/app/uiSlice';
 import { usePermissions } from '@/hooks/usePermissions';
 import { NAV_ITEMS } from '@/app/routes/navigation';
-import { APP_CONFIG } from '@/constants';
+import { APP_CONFIG, ROUTES } from '@/constants';
+import { HANDBOOK_UI, SINHALA_FONT } from '@/features/handbook/content';
 import { LOGO_SRC } from '@/features/home/brand';
+import { useLocale } from '@/hooks/useLocale';
 
 export const SIDEBAR_WIDTH = 256;
 export const SIDEBAR_COLLAPSED_WIDTH = 72;
@@ -64,6 +66,7 @@ const NavList = ({
   onNavigate?: () => void;
 }) => {
   const { hasPermission } = usePermissions();
+  const { locale } = useLocale();
   const { user, currentShopId } = useAppSelector((s) => s.auth);
   const currentShop =
     user?.shops?.find((shop) => String(shop.id) === String(currentShopId)) ??
@@ -71,6 +74,7 @@ const NavList = ({
   const isProShop = currentShop?.plan === 'PRO';
 
   const items = NAV_ITEMS.filter((item) => {
+    if (item.alwaysVisible) return true;
     if (item.anyOf?.length) return item.anyOf.some((p) => hasPermission(p));
     if (item.permission) return hasPermission(item.permission);
     return false;
@@ -79,11 +83,13 @@ const NavList = ({
   return (
     <List sx={{ px: 1 }}>
       {items.map(({ label, path, icon: Icon, requiresPro }) => {
+        const itemLabel =
+          path === ROUTES.HANDBOOK ? HANDBOOK_UI[locale].nav : label;
         const showProTag = Boolean(requiresPro && !isProShop);
         const tooltip = collapsed
           ? showProTag
-            ? `${label} (Pro)`
-            : label
+            ? `${itemLabel} (Pro)`
+            : itemLabel
           : '';
 
         return (
@@ -122,8 +128,17 @@ const NavList = ({
                         minWidth: 0,
                       }}
                     >
-                      <Typography component="span" variant="body1" noWrap>
-                        {label}
+                      <Typography
+                        component="span"
+                        variant="body1"
+                        noWrap
+                        sx={
+                          path === ROUTES.HANDBOOK && locale === 'si'
+                            ? { fontFamily: SINHALA_FONT }
+                            : undefined
+                        }
+                      >
+                        {itemLabel}
                       </Typography>
                       {showProTag ? <ProTag /> : null}
                     </Box>
