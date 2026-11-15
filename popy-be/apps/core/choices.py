@@ -34,8 +34,9 @@ class StockTransactionType(models.TextChoices):
 class AdjustmentType(models.TextChoices):
     DAMAGE = "DAMAGE", "Damage"
     LOSS = "LOSS", "Loss"
-    CORRECTION = "CORRECTION", "Correction"
+    EXPIRE = "EXPIRE", "Expire"
     FOUND = "FOUND", "Found"
+    ADD = "ADD", "Add"
 
 
 class ShopPlan(models.TextChoices):

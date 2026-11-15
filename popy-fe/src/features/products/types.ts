@@ -26,5 +26,6 @@ export interface ProductPayload {
   costPrice: number;
   sellingPrice: number;
   reorderLevel: number;
+  stockQuantity: number;
   status: boolean;
 }

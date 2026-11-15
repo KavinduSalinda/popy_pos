@@ -1,5 +1,5 @@
-import { useEffect, useMemo } from 'react';
-import { useForm } from 'react-hook-form';
+import { useEffect, useMemo, useRef } from 'react';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button, Stack, Typography } from '@mui/material';
 import { toast } from 'react-toastify';
@@ -11,6 +11,9 @@ import { useCreateAdjustmentMutation } from '../inventoryApi';
 import {
   ADJUSTMENT_TYPES,
   adjustmentSchema,
+  isDecreaseAdjustment,
+  roundStock,
+  signedAdjustment,
   type AdjustmentFormValues,
 } from '../schema';
 import type {
@@ -38,8 +41,10 @@ export const AdjustmentDialog = ({
   });
   const [createAdjustment, { isLoading }] = useCreateAdjustmentMutation();
 
+  const products = data?.data ?? [];
+
   const productOptions = useMemo(() => {
-    const options = (data?.data ?? [])
+    const options = products
       .filter((p) => p.status)
       .map((p) => ({
         value:
@@ -58,34 +63,146 @@ export const AdjustmentDialog = ({
     }
 
     return options;
-  }, [data, item]);
+  }, [products, item]);
 
-  const { control, handleSubmit, reset } = useForm<AdjustmentFormValues>({
-    resolver: zodResolver(adjustmentSchema),
-    defaultValues: {
-      productId: '',
-      adjustmentType: 'DAMAGE',
-      quantity: 0,
-      note: '',
-    },
-  });
-
-  useEffect(() => {
-    if (open) {
-      reset({
-        productId: item?.productId ?? '',
+  const { control, handleSubmit, reset, setValue, setError } =
+    useForm<AdjustmentFormValues>({
+      resolver: zodResolver(adjustmentSchema),
+      defaultValues: {
+        productId: '',
         adjustmentType: 'DAMAGE',
         quantity: 0,
+        newTotal: 0,
         note: '',
-      });
+      },
+    });
+
+  const productId = useWatch({ control, name: 'productId' });
+  const adjustmentType = useWatch({ control, name: 'adjustmentType' });
+  const quantity = useWatch({ control, name: 'quantity' });
+  const newTotal = useWatch({ control, name: 'newTotal' });
+
+  const onHand = useMemo(() => {
+    if (item && String(productId) === String(item.productId)) {
+      return Number(item.stockQuantity) || 0;
     }
+    const product = products.find((p) => String(p.id) === String(productId));
+    return Number(product?.stockQuantity) || 0;
+  }, [item, productId, products]);
+
+  const linked = useRef({
+    quantity: 0 as number | '',
+    newTotal: 0 as number | '',
+    adjustmentType: 'DAMAGE',
+    onHand: 0,
+  });
+  const pendingReset = useRef<{
+    productId: AdjustmentFormValues['productId'];
+    adjustmentType: AdjustmentFormValues['adjustmentType'];
+    quantity: number;
+    newTotal: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!open) {
+      pendingReset.current = null;
+      return;
+    }
+    const starting = Number(item?.stockQuantity) || 0;
+    const next = {
+      productId: item?.productId ?? '',
+      adjustmentType: 'DAMAGE' as const,
+      quantity: 0,
+      newTotal: starting,
+    };
+    pendingReset.current = next;
+    linked.current = {
+      quantity: 0,
+      newTotal: starting,
+      adjustmentType: 'DAMAGE',
+      onHand: starting,
+    };
+    reset({ ...next, note: '' });
   }, [open, item, reset]);
 
+  useEffect(() => {
+    if (!open) return;
+    const pending = pendingReset.current;
+    if (pending) {
+      const applied =
+        productId === pending.productId &&
+        adjustmentType === pending.adjustmentType &&
+        quantity === pending.quantity &&
+        newTotal === pending.newTotal;
+      if (!applied) return;
+      pendingReset.current = null;
+      linked.current = { quantity, newTotal, adjustmentType, onHand };
+      return;
+    }
+    const last = linked.current;
+    const qtyChanged = quantity !== last.quantity;
+    const totalChanged = newTotal !== last.newTotal;
+    const typeChanged = adjustmentType !== last.adjustmentType;
+    const handChanged = onHand !== last.onHand;
+
+    if (totalChanged && !qtyChanged && !typeChanged && !handChanged) {
+      if (typeof newTotal !== 'number' || !Number.isFinite(newTotal)) {
+        linked.current = { quantity, newTotal, adjustmentType, onHand };
+        return;
+      }
+      const nextQty = roundStock(Math.abs(newTotal - onHand));
+      linked.current = {
+        quantity: nextQty,
+        newTotal,
+        adjustmentType,
+        onHand,
+      };
+      if (quantity !== nextQty) {
+        setValue('quantity', nextQty, { shouldValidate: false, shouldDirty: true });
+      }
+      return;
+    }
+
+    if (
+      (qtyChanged || typeChanged || handChanged) &&
+      typeof quantity === 'number' &&
+      Number.isFinite(quantity)
+    ) {
+      const next = roundStock(onHand + signedAdjustment(adjustmentType, quantity));
+      linked.current = {
+        quantity,
+        newTotal: next,
+        adjustmentType,
+        onHand,
+      };
+      if (newTotal !== next) {
+        setValue('newTotal', next, { shouldValidate: false, shouldDirty: true });
+      }
+      return;
+    }
+
+    linked.current = { quantity, newTotal, adjustmentType, onHand };
+  }, [open, quantity, newTotal, adjustmentType, onHand, setValue]);
+
   const onSubmit = handleSubmit(async (values) => {
+    const decrease = isDecreaseAdjustment(values.adjustmentType);
+    if (decrease && values.newTotal > onHand) {
+      setError('newTotal', {
+        message: 'Damage, loss, and expire cannot raise the total',
+      });
+      return;
+    }
+    if (!decrease && values.newTotal < onHand) {
+      setError('newTotal', {
+        message: 'Found and add cannot lower the total',
+      });
+      return;
+    }
+
     const payload: AdjustmentPayload = {
       productId: values.productId,
       adjustmentType: values.adjustmentType as AdjustmentType,
-      quantity: values.quantity,
+      quantity: Math.abs(values.quantity),
       note: values.note || undefined,
     };
     try {
@@ -96,6 +213,8 @@ export const AdjustmentDialog = ({
       toast.error(getErrorMessage(error));
     }
   });
+
+  const productSelected = productId !== '' && productId != null;
 
   return (
     <Modal
@@ -114,9 +233,9 @@ export const AdjustmentDialog = ({
       }
     >
       <Stack component="form" spacing={2} onSubmit={onSubmit} mt={1}>
-        {item && (
+        {productSelected && (
           <Typography variant="body2" color="text.secondary">
-            On hand: {formatQuantity(item.stockQuantity)}
+            On hand: {formatQuantity(onHand)}
           </Typography>
         )}
         <FormSelect
@@ -134,8 +253,16 @@ export const AdjustmentDialog = ({
         <FormTextField
           name="quantity"
           control={control}
-          label="Quantity (use negative to reduce)"
+          label="Quantity"
           type="number"
+          helperText="Damage, loss, and expire remove this amount. Found and add increase it."
+        />
+        <FormTextField
+          name="newTotal"
+          control={control}
+          label="New total"
+          type="number"
+          helperText="The on-hand count after this adjustment."
         />
         <FormTextField
           name="note"

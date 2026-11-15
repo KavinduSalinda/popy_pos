@@ -38,3 +38,8 @@ class StockAdjustmentCreateSerializer(CamelCaseSerializer):
     adjustment_type = serializers.ChoiceField(choices=AdjustmentType.choices)
     quantity = serializers.DecimalField(max_digits=14, decimal_places=3)
     note = serializers.CharField(required=False, allow_blank=True, default="")
+
+    def validate_quantity(self, value):
+        if value <= 0:
+            raise serializers.ValidationError("Quantity must be greater than 0.")
+        return value

@@ -30,7 +30,7 @@ export interface StockTransaction {
   createdAt: string;
 }
 
-export type AdjustmentType = 'DAMAGE' | 'LOSS' | 'CORRECTION' | 'FOUND';
+export type AdjustmentType = 'DAMAGE' | 'LOSS' | 'EXPIRE' | 'FOUND' | 'ADD';
 
 export interface AdjustmentPayload {
   productId: ID;

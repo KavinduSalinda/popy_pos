@@ -84,6 +84,12 @@ const productFields: HandbookParameter[] = [
       'Whole number, 0 or more. The product is low stock when quantity is above 0 and at or below this number. 0 means no low-stock alert.',
   },
   {
+    name: 'Stock quantity',
+    required: true,
+    details:
+      'Amount on hand. 0 or more, up to 3 decimal places. On a new product, a number above 0 is recorded as opening stock. On edit, the difference from the current on-hand amount is added or removed. The result cannot go below 0.',
+  },
+  {
     name: 'Active',
     required: true,
     details:
@@ -99,8 +105,7 @@ export const HANDBOOK_SECTIONS: HandbookSection[] = [
       'Products, stock, sales, and people belong to the shop you are working in. Nothing is shared with another shop.',
     notes: [
       'Super Admin can switch shops from the top bar. Other staff stay in the shop they are assigned to.',
-      'A new product starts at quantity 0. The product form cannot set on-hand stock.',
-      'Quantity changes only when you sell, receive a purchase, adjust inventory, or record a return.',
+      'Set the on-hand quantity on the product form when you create or edit a product. Quantity also changes when you sell, receive a purchase, adjust inventory, or record a return.',
       'Super Admin and Manager run the shop. A Cashier sells and can look up products, customers, and sales. An Inventory Officer updates products, stock, and purchases, and does not use the point of sale.',
     ],
   },
@@ -108,7 +113,7 @@ export const HANDBOOK_SECTIONS: HandbookSection[] = [
     id: 'products',
     title: 'Products',
     summary:
-      'The Products screen is the catalog: name, prices, unit, and whether the item can be sold. Stock on that screen is display only.',
+      'The Products screen is the catalog: name, prices, unit, on-hand quantity, and whether the item can be sold.',
     operations: [
       {
         title: 'Add a product',
@@ -117,9 +122,9 @@ export const HANDBOOK_SECTIONS: HandbookSection[] = [
         steps: [
           'Open Products in the sidebar.',
           'Choose New product.',
-          'Fill in the fields below. Barcode and brand can be left blank.',
-          'Choose Create. The product is saved with on-hand quantity 0.',
-          'To put units on the shelf, receive a purchase or record a stock adjustment.',
+          'Fill in the fields below. Barcode and brand can be left blank. Stock quantity is the amount on hand now. Use 0 if nothing is on the shelf yet.',
+          'Choose Create. If stock quantity is above 0, that amount is saved as opening stock.',
+          'You can still change stock later from Purchases or Inventory.',
         ],
         parameters: productFields,
         notes: [
@@ -135,7 +140,7 @@ export const HANDBOOK_SECTIONS: HandbookSection[] = [
           'Open Products and find the product.',
           'Choose Edit.',
           'Change the fields and choose Save changes.',
-          'On-hand quantity stays as it is. Use Purchases or Inventory to change stock.',
+          'Change Stock quantity if the amount on hand should be different. The difference is added or removed. The result cannot go below 0.',
         ],
         parameters: productFields,
         notes: [
@@ -227,9 +232,10 @@ export const HANDBOOK_SECTIONS: HandbookSection[] = [
         steps: [
           'Open Inventory. Use the tabs to see everything, movements, low stock, or out of stock.',
           'Choose New adjustment, or click a product if you are allowed to adjust it.',
-          'Pick the product, a type, and a quantity, then save.',
-          'The quantity is the change. A positive number adds stock. A negative number removes it. The type is only a label: Damage or Loss does not reduce stock unless the quantity is negative.',
-          'The result cannot go below zero. If it would, the adjustment is rejected.',
+          'Pick the product and a type.',
+          'Enter a quantity greater than 0, or type the New total you want on hand. The other field updates to match.',
+          'Damage, Loss, and Expire remove that quantity. Found and Add add it.',
+          'Choose Save adjustment. The result cannot go below zero. If it would, the adjustment is rejected.',
         ],
         parameters: [
           {
@@ -241,13 +247,19 @@ export const HANDBOOK_SECTIONS: HandbookSection[] = [
             name: 'Adjustment type',
             required: true,
             details:
-              'Damage, Loss, Correction, or Found. This is the reason stored on the adjustment. It does not decide whether stock goes up or down.',
+              'Damage, Loss, and Expire remove stock. Found and Add increase stock.',
           },
           {
-            name: 'Quantity (use negative to reduce)',
+            name: 'Quantity',
             required: true,
             details:
-              'A whole number other than 0. Positive adds stock. Negative removes stock.',
+              'A number greater than 0, up to 3 decimal places. Damage, Loss, and Expire remove this amount. Found and Add add it.',
+          },
+          {
+            name: 'New total',
+            required: true,
+            details:
+              'The on-hand count after the adjustment. Changing the type or quantity updates this. Typing a new total updates the quantity to the difference. Damage, Loss, and Expire cannot raise the total. Found and Add cannot lower it. The result cannot go below 0.',
           },
           {
             name: 'Note',

@@ -36,6 +36,7 @@ const EMPTY: ProductFormValues = {
   costPrice: 0,
   sellingPrice: 0,
   reorderLevel: 0,
+  stockQuantity: 0,
   status: true,
 };
 
@@ -86,9 +87,10 @@ export const ProductFormDialog = ({
               categoryId: product.categoryId,
               brand: product.brand ?? '',
               unit: product.unit,
-              costPrice: product.costPrice,
-              sellingPrice: product.sellingPrice,
-              reorderLevel: product.reorderLevel,
+              costPrice: Number(product.costPrice),
+              sellingPrice: Number(product.sellingPrice),
+              reorderLevel: Number(product.reorderLevel),
+              stockQuantity: Number(product.stockQuantity ?? 0),
               status: product.status,
             }
           : EMPTY,
@@ -172,7 +174,7 @@ export const ProductFormDialog = ({
             options={PRODUCT_UNITS}
           />
         </Grid>
-        <Grid size={{ xs: 12, sm: 4 }}>
+        <Grid size={{ xs: 12, sm: 3 }}>
           <FormTextField
             name="costPrice"
             control={control}
@@ -180,7 +182,7 @@ export const ProductFormDialog = ({
             type="number"
           />
         </Grid>
-        <Grid size={{ xs: 12, sm: 4 }}>
+        <Grid size={{ xs: 12, sm: 3 }}>
           <FormTextField
             name="sellingPrice"
             control={control}
@@ -188,11 +190,19 @@ export const ProductFormDialog = ({
             type="number"
           />
         </Grid>
-        <Grid size={{ xs: 12, sm: 4 }}>
+        <Grid size={{ xs: 12, sm: 3 }}>
           <FormTextField
             name="reorderLevel"
             control={control}
             label="Reorder level"
+            type="number"
+          />
+        </Grid>
+        <Grid size={{ xs: 12, sm: 3 }}>
+          <FormTextField
+            name="stockQuantity"
+            control={control}
+            label="Stock quantity"
             type="number"
           />
         </Grid>

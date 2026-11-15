@@ -12,6 +12,7 @@ export const productSchema = z.object({
   costPrice: z.number().min(0, 'Must be 0 or more'),
   sellingPrice: z.number().min(0, 'Must be 0 or more'),
   reorderLevel: z.number().int().min(0, 'Must be 0 or more'),
+  stockQuantity: z.number().min(0, 'Must be 0 or more'),
   status: z.boolean(),
 });
 

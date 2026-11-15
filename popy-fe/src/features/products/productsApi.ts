@@ -25,7 +25,11 @@ export const productsApi = baseApi.injectEndpoints({
 
     createProduct: builder.mutation<Product, ProductPayload>({
       query: (body) => ({ url: '/products', method: 'POST', data: body }),
-      invalidatesTags: [{ type: 'Product', id: 'LIST' }],
+      invalidatesTags: [
+        { type: 'Product', id: 'LIST' },
+        { type: 'Inventory', id: 'LIST' },
+        { type: 'StockTransaction', id: 'LIST' },
+      ],
     }),
 
     updateProduct: builder.mutation<Product, { id: ID; data: ProductPayload }>({
@@ -37,6 +41,8 @@ export const productsApi = baseApi.injectEndpoints({
       invalidatesTags: (_r, _e, { id }) => [
         { type: 'Product', id },
         { type: 'Product', id: 'LIST' },
+        { type: 'Inventory', id: 'LIST' },
+        { type: 'StockTransaction', id: 'LIST' },
       ],
     }),
 

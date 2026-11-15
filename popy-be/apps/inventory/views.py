@@ -6,7 +6,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.catalog.models import Product
-from apps.core.choices import StockTransactionType
+from apps.core.choices import AdjustmentType, StockTransactionType
 from apps.core.permissions import HasPOSPermission
 from apps.core.services import adjust_stock
 from apps.core.shop_context import ShopScopedMixin
@@ -118,10 +118,21 @@ class StockAdjustmentCreateView(ShopScopedMixin, APIView):
             )
 
         quantity = data["quantity"]
+        if quantity <= 0:
+            return Response(
+                {"message": "Quantity must be greater than 0", "statusCode": 400},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        decrease = data["adjustment_type"] in {
+            AdjustmentType.DAMAGE,
+            AdjustmentType.LOSS,
+            AdjustmentType.EXPIRE,
+        }
+        signed_quantity = -quantity if decrease else quantity
         try:
             adjust_stock(
                 product,
-                quantity,
+                signed_quantity,
                 StockTransactionType.ADJUSTMENT,
                 note=data.get("note", ""),
                 reference_type="StockAdjustment",
@@ -135,7 +146,7 @@ class StockAdjustmentCreateView(ShopScopedMixin, APIView):
         StockAdjustment.objects.create(
             product=product,
             adjustment_type=data["adjustment_type"],
-            quantity=quantity,
+            quantity=signed_quantity,
             note=data.get("note", ""),
             user=request.user,
         )
