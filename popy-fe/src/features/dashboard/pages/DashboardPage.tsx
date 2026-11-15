@@ -1,249 +1,303 @@
-import { Card, CardContent, CardHeader, Grid, Typography } from '@mui/material';
-import AttachMoney from '@mui/icons-material/AttachMoney';
-import CalendarMonth from '@mui/icons-material/CalendarMonth';
-import TrendingUp from '@mui/icons-material/TrendingUp';
-import Savings from '@mui/icons-material/Savings';
-import Warning from '@mui/icons-material/Warning';
-import RemoveShoppingCart from '@mui/icons-material/RemoveShoppingCart';
-import People from '@mui/icons-material/People';
-import LocalShipping from '@mui/icons-material/LocalShipping';
+import { useState } from 'react';
 import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Legend,
-  Line,
-  LineChart,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip as ReTooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
-import { EmptyState, Loader, PageHeader } from '@/components/common';
-import { formatCurrency, formatNumber } from '@/utils';
+  Alert,
+  Box,
+  MenuItem,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  TextField,
+  Typography,
+} from '@mui/material';
+import dayjs from 'dayjs';
+import { Loader, PageHeader } from '@/components/common';
+import { formatCurrency, formatNumber, formatQuantity, toNumber } from '@/utils';
+import {
+  CashierChart,
+  CategoryChart,
+  ChartCard,
+  HourChart,
+  LossChart,
+  PaymentChart,
+  SalesTrendChart,
+  TopProductsChart,
+} from '../components/DashboardCharts';
 import { KpiCard } from '../components/KpiCard';
-import {
-  useGetDashboardSummaryQuery,
-  useGetSalesByCategoryQuery,
-  useGetSalesTrendQuery,
-  useGetTopProductsQuery,
-} from '../dashboardApi';
+import { useGetDashboardOverviewQuery } from '../dashboardApi';
+import type { DashboardOverview, DashboardRange } from '../types';
 
-const PIE_COLORS = [
-  '#2563eb',
-  '#7c3aed',
-  '#16a34a',
-  '#d97706',
-  '#dc2626',
-  '#0891b2',
+const RANGES: { value: DashboardRange; label: string }[] = [
+  { value: 7, label: 'Last 7 days' },
+  { value: 30, label: 'Last 30 days' },
+  { value: 90, label: 'Last 90 days' },
 ];
 
-const toNumeric = (value: unknown): number => {
-  if (typeof value === 'number') return value;
-  if (typeof value === 'string') return Number(value) || 0;
-  if (Array.isArray(value) && value.length > 0) return toNumeric(value[0]);
-  return 0;
+const grid = {
+  display: 'grid',
+  gap: 2,
+  '& > *': { minWidth: 0 },
 };
 
-const tooltipCurrency = (value: unknown) => formatCurrency(toNumeric(value));
-const tooltipNumber = (value: unknown) => formatNumber(toNumeric(value));
+const tableSx = {
+  minWidth: 420,
+  '& .MuiTableCell-root': { borderColor: 'divider', py: '9px', px: '6px' },
+  '& .MuiTableCell-head': { fontWeight: 600 },
+  '& .MuiTableBody-root .MuiTableRow-root:last-child .MuiTableCell-root': {
+    borderBottom: 0,
+  },
+};
 
-export const DashboardPage = () => {
-  const { data: summary, isLoading: summaryLoading } =
-    useGetDashboardSummaryQuery();
-  const { data: trend, isLoading: trendLoading } = useGetSalesTrendQuery();
-  const { data: topProducts = [] } = useGetTopProductsQuery();
-  const { data: categorySales = [] } = useGetSalesByCategoryQuery();
+const formatSaleTime = (value: string) => {
+  const parsed = dayjs(value);
+  if (!parsed.isValid()) return '-';
+  return parsed.isSame(dayjs(), 'day')
+    ? parsed.format('h:mm a')
+    : parsed.format('D MMM, h:mm a');
+};
 
-  const kpis = [
+const DashboardBody = ({ data }: { data: DashboardOverview }) => {
+  const kpis = data.kpis;
+  const cards = [
     {
-      title: "Today's Sales",
-      value: formatCurrency(summary?.todaySales ?? 0),
-      icon: <AttachMoney />,
-      color: 'primary.main',
+      title: 'Total sales',
+      value: formatCurrency(kpis.totalSales.current),
+      metric: kpis.totalSales,
     },
     {
-      title: 'Monthly Sales',
-      value: formatCurrency(summary?.monthlySales ?? 0),
-      icon: <CalendarMonth />,
-      color: 'secondary.main',
+      title: 'Transactions',
+      value: formatNumber(kpis.transactions.current),
+      metric: kpis.transactions,
     },
     {
-      title: 'Total Revenue',
-      value: formatCurrency(summary?.totalRevenue ?? 0),
-      icon: <TrendingUp />,
-      color: 'success.main',
+      title: 'Average order value',
+      value: formatCurrency(kpis.averageOrderValue.current),
+      metric: kpis.averageOrderValue,
     },
     {
-      title: 'Gross Profit',
-      value: formatCurrency(summary?.grossProfit ?? 0),
-      icon: <Savings />,
-      color: 'info.main',
+      title: 'Gross profit',
+      value: formatCurrency(kpis.grossProfit.current),
+      metric: kpis.grossProfit,
     },
     {
-      title: 'Low Stock',
-      value: formatNumber(summary?.lowStockCount ?? 0),
-      icon: <Warning />,
-      color: 'warning.main',
+      title: 'Items per transaction',
+      value: toNumber(kpis.itemsPerTransaction.current).toFixed(1),
+      metric: kpis.itemsPerTransaction,
     },
     {
-      title: 'Out of Stock',
-      value: formatNumber(summary?.outOfStockCount ?? 0),
-      icon: <RemoveShoppingCart />,
-      color: 'error.main',
-    },
-    {
-      title: 'Customers',
-      value: formatNumber(summary?.totalCustomers ?? 0),
-      icon: <People />,
-      color: 'primary.main',
-    },
-    {
-      title: 'Suppliers',
-      value: formatNumber(summary?.totalSuppliers ?? 0),
-      icon: <LocalShipping />,
-      color: 'secondary.main',
+      title: 'Refunds',
+      value: formatCurrency(kpis.refunds.current),
+      metric: kpis.refunds,
+      inverse: true,
     },
   ];
 
   return (
     <>
-      <PageHeader title="Dashboard" subtitle="Business overview at a glance" />
-
-      <Grid container spacing={2} sx={{ mb: 1 }}>
-        {kpis.map((kpi) => (
-          <Grid key={kpi.title} size={{ xs: 12, sm: 6, md: 3 }}>
-            <KpiCard {...kpi} loading={summaryLoading} />
-          </Grid>
-        ))}
-      </Grid>
-
-      <Grid container spacing={2} sx={{ mt: 1 }}>
-        <Grid size={{ xs: 12, lg: 8 }}>
-          <Card>
-            <CardHeader
-              title="Daily Sales Trend"
-              titleTypographyProps={{ variant: 'h6' }}
-            />
-            <CardContent sx={{ height: 320 }}>
-              {trendLoading ? (
-                <Loader />
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={trend?.daily ?? []}>
-                    <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                    <XAxis dataKey="label" />
-                    <YAxis />
-                    <ReTooltip formatter={tooltipCurrency} />
-                    <Line
-                      type="monotone"
-                      dataKey="total"
-                      stroke="#2563eb"
-                      strokeWidth={2}
-                      dot={false}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              )}
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid size={{ xs: 12, lg: 4 }}>
-          <Card sx={{ height: '100%' }}>
-            <CardHeader
-              title="Sales by Category"
-              titleTypographyProps={{ variant: 'h6' }}
-            />
-            <CardContent sx={{ height: 320 }}>
-              {categorySales.length === 0 ? (
-                <EmptyState title="No data" />
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={categorySales}
-                      dataKey="total"
-                      nameKey="category"
-                      outerRadius={90}
-                      label
-                    >
-                      {categorySales.map((_entry, index) => (
-                        <Cell
-                          key={index}
-                          fill={PIE_COLORS[index % PIE_COLORS.length]}
-                        />
-                      ))}
-                    </Pie>
-                    <Legend />
-                    <ReTooltip formatter={tooltipCurrency} />
-                  </PieChart>
-                </ResponsiveContainer>
-              )}
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid size={{ xs: 12, lg: 6 }}>
-          <Card>
-            <CardHeader
-              title="Monthly Sales Trend"
-              titleTypographyProps={{ variant: 'h6' }}
-            />
-            <CardContent sx={{ height: 300 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={trend?.monthly ?? []}>
-                  <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                  <XAxis dataKey="label" />
-                  <YAxis />
-                  <ReTooltip formatter={tooltipCurrency} />
-                  <Bar dataKey="total" fill="#7c3aed" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid size={{ xs: 12, lg: 6 }}>
-          <Card>
-            <CardHeader
-              title="Top Selling Products"
-              titleTypographyProps={{ variant: 'h6' }}
-            />
-            <CardContent sx={{ height: 300 }}>
-              {topProducts.length === 0 ? (
-                <EmptyState title="No data" />
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={topProducts} layout="vertical">
-                    <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-                    <XAxis type="number" />
-                    <YAxis type="category" dataKey="name" width={120} />
-                    <ReTooltip formatter={tooltipNumber} />
-                    <Bar
-                      dataKey="quantitySold"
-                      fill="#16a34a"
-                      radius={[0, 4, 4, 0]}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-
-      <Typography
-        variant="caption"
-        color="text.secondary"
-        sx={{ mt: 2, display: 'block' }}
+      <Box
+        sx={{
+          ...grid,
+          gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
+        }}
       >
-        Figures update in real time as sales are processed.
+        {cards.map((card) => (
+          <KpiCard
+            key={card.title}
+            title={card.title}
+            value={card.value}
+            current={toNumber(card.metric.current)}
+            previous={toNumber(card.metric.previous)}
+            inverse={card.inverse}
+          />
+        ))}
+      </Box>
+
+      <Box
+        sx={{
+          ...grid,
+          gridTemplateColumns: { xs: '1fr', lg: '2fr 1fr' },
+        }}
+      >
+        <ChartCard title="Sales trend" subtitle="Daily sales vs the previous period" tall>
+          <SalesTrendChart data={data.salesTrend} />
+        </ChartCard>
+        <ChartCard title="Sales by category" subtitle="Share of revenue" tall>
+          <CategoryChart data={data.categories} />
+        </ChartCard>
+      </Box>
+
+      <Box
+        sx={{
+          ...grid,
+          gridTemplateColumns: { xs: '1fr', md: '1fr 1fr', lg: 'repeat(3, 1fr)' },
+        }}
+      >
+        <ChartCard title="Sales by hour" subtitle="Find your busiest hours">
+          <HourChart data={data.salesByHour} />
+        </ChartCard>
+        <ChartCard title="Top products" subtitle="By revenue">
+          <TopProductsChart data={data.topProducts} />
+        </ChartCard>
+        <ChartCard title="Payment methods" subtitle="Share of transactions">
+          <PaymentChart data={data.paymentMethods} />
+        </ChartCard>
+      </Box>
+
+      <Box sx={{ ...grid, gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' } }}>
+        <ChartCard title="Sales by cashier" subtitle="Revenue per person">
+          <CashierChart data={data.salesByCashier} />
+        </ChartCard>
+        <ChartCard title="Discounts and refunds" subtitle="Watch for spikes">
+          <LossChart data={data.discountsAndRefunds} />
+        </ChartCard>
+      </Box>
+
+      <Box sx={{ ...grid, gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' } }}>
+        <ChartCard title="Low stock" subtitle="Items at or below reorder level" fluid>
+          <Box>
+            <Table size="small" sx={tableSx}>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Product</TableCell>
+                  <TableCell>Category</TableCell>
+                  <TableCell align="right">Stock</TableCell>
+                  <TableCell align="right">Reorder at</TableCell>
+                  <TableCell>Status</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {data.lowStock.length === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={5}
+                      sx={{ color: 'text.secondary', borderBottom: 0 }}
+                    >
+                      Nothing is at or below its reorder level.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  data.lowStock.map((item) => (
+                    <TableRow key={item.id}>
+                      <TableCell>{item.name}</TableCell>
+                      <TableCell>{item.category}</TableCell>
+                      <TableCell align="right">{formatQuantity(item.stock)}</TableCell>
+                      <TableCell align="right">
+                        {formatQuantity(item.reorderLevel)}
+                      </TableCell>
+                      <TableCell>
+                        <Box
+                          component="span"
+                          sx={{
+                            borderRadius: '12px',
+                            px: '9px',
+                            py: '2px',
+                            fontSize: 12,
+                            fontWeight: 500,
+                            color: '#fff',
+                            bgcolor: item.status === 'out' ? '#dc2626' : '#d97706',
+                          }}
+                        >
+                          {item.status === 'out' ? 'Out of stock' : 'Low'}
+                        </Box>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </Box>
+        </ChartCard>
+
+        <ChartCard title="Recent sales" subtitle="Latest completed transactions" fluid>
+          <Box>
+            <Table size="small" sx={tableSx}>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Invoice</TableCell>
+                  <TableCell>Time</TableCell>
+                  <TableCell>Cashier</TableCell>
+                  <TableCell>Payment</TableCell>
+                  <TableCell align="right">Total</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {data.recentSales.length === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={5}
+                      sx={{ color: 'text.secondary', borderBottom: 0 }}
+                    >
+                      No sales yet.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  data.recentSales.map((sale) => (
+                    <TableRow key={sale.reference}>
+                      <TableCell>{sale.reference}</TableCell>
+                      <TableCell>{formatSaleTime(sale.createdAt)}</TableCell>
+                      <TableCell>{sale.cashier}</TableCell>
+                      <TableCell>{sale.paymentMethod}</TableCell>
+                      <TableCell align="right">{formatCurrency(sale.total)}</TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </Box>
+        </ChartCard>
+      </Box>
+
+      <Typography sx={{ color: 'text.secondary', fontSize: 12 }}>
+        Compared with the previous period of the same length. Figures update as sales are
+        processed.
       </Typography>
     </>
+  );
+};
+
+export const DashboardPage = () => {
+  const [days, setDays] = useState<DashboardRange>(30);
+  const { data, isLoading, isFetching, isError } = useGetDashboardOverviewQuery(days);
+
+  return (
+    <Box
+      sx={{
+        display: 'grid',
+        gap: 2,
+        opacity: isFetching && data ? 0.72 : 1,
+        transition: 'opacity 160ms ease',
+      }}
+    >
+      <PageHeader
+        title="Dashboard"
+        actions={
+          <TextField
+            select
+            size="small"
+            value={days}
+            onChange={(event) => setDays(Number(event.target.value) as DashboardRange)}
+            aria-label="Date range"
+            sx={{ minWidth: 168, '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+          >
+            {RANGES.map((range) => (
+              <MenuItem key={range.value} value={range.value}>
+                {range.label}
+              </MenuItem>
+            ))}
+          </TextField>
+        }
+      />
+
+      {isError && !data ? (
+        <Alert severity="error">
+          The dashboard could not be loaded. Try again in a moment.
+        </Alert>
+      ) : null}
+
+      {isLoading && !data ? <Loader message="Loading dashboard…" /> : null}
+      {data ? <DashboardBody data={data} /> : null}
+    </Box>
   );
 };
 

@@ -13,6 +13,7 @@ from apps.core.permissions import HasPOSPermission
 from apps.core.shop_context import ShopScopedMixin
 from apps.core.utils import dict_to_camel_case
 from apps.parties.models import Customer, Supplier
+from apps.dashboard.services import build_overview
 from apps.sales.models import Sale, SaleItem
 
 
@@ -111,6 +112,15 @@ class DashboardViewSet(ShopScopedMixin, ViewSet):
             for row in qs
         ]
         return Response([dict_to_camel_case(item) for item in data])
+
+    def overview(self, request):
+        try:
+            days = int(request.query_params.get("days", 30))
+        except (TypeError, ValueError):
+            days = 30
+        if days not in (7, 30, 90):
+            days = 30
+        return Response(dict_to_camel_case(build_overview(self.shop, days)))
 
     def sales_by_category(self, request):
         qs = (

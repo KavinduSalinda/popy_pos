@@ -1,6 +1,8 @@
 import { baseApi } from '@/api/baseApi';
 import type {
   CategorySales,
+  DashboardOverview,
+  DashboardRange,
   DashboardSummary,
   SalesTrend,
   TopProduct,
@@ -27,6 +29,11 @@ export const dashboardApi = baseApi.injectEndpoints({
       query: () => ({ url: '/dashboard/sales-by-category' }),
       providesTags: [{ type: 'Dashboard', id: 'CATEGORY' }],
     }),
+
+    getDashboardOverview: builder.query<DashboardOverview, DashboardRange>({
+      query: (days) => ({ url: '/dashboard/overview', params: { days } }),
+      providesTags: [{ type: 'Dashboard', id: 'OVERVIEW' }],
+    }),
   }),
   overrideExisting: false,
 });
@@ -36,4 +43,5 @@ export const {
   useGetSalesTrendQuery,
   useGetTopProductsQuery,
   useGetSalesByCategoryQuery,
+  useGetDashboardOverviewQuery,
 } = dashboardApi;

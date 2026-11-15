@@ -66,6 +66,7 @@ urlpatterns = [
     path("returns/sales", SalesReturnCreateView.as_view(), name="returns-sales"),
     path("returns/purchase", PurchaseReturnCreateView.as_view(), name="returns-purchase"),
     path("dashboard/summary", dashboard, name="dashboard-summary"),
+    path("dashboard/overview", DashboardViewSet.as_view({"get": "overview"}), name="dashboard-overview"),
     path("dashboard/sales-trend", dashboard_sales_trend, name="dashboard-sales-trend"),
     path("dashboard/top-products", dashboard_top_products, name="dashboard-top-products"),
     path("dashboard/sales-by-category", dashboard_sales_by_category, name="dashboard-sales-by-category"),
