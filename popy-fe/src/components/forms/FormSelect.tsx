@@ -17,7 +17,7 @@ interface FormSelectProps<T extends FieldValues> {
   name: Path<T>;
   control: Control<T>;
   label: string;
-  options: SelectOption<string | number>[];
+  options: readonly Readonly<SelectOption<string | number>>[];
   fullWidth?: boolean;
   disabled?: boolean;
 }

@@ -6,7 +6,7 @@ import { fileURLToPath, URL } from 'node:url';
 
 // https://vite.dev/config/
 export default defineConfig({
-  base: process.env.ELECTRON === 'true' ? './' : '/',
+  base: '/',
   plugins: [react(), tailwindcss()],
   server: {
     port: 5173,

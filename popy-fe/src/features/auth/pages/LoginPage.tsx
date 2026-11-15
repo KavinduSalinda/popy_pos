@@ -1,12 +1,15 @@
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Alert, Box, Button, Link, Stack } from '@mui/material';
-import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom';
+import { Link as RouterLink, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { FormTextField } from '@/components/forms';
+import { Loader } from '@/components/common';
 import { useLoginMutation } from '../authApi';
 import { loginSchema, type LoginFormValues } from '../schemas';
 import { getErrorMessage } from '@/utils';
 import { ROUTES } from '@/constants';
+import { getApiBaseUrl } from '@/services/serverConfig';
 
 interface LocationState {
   from?: string;
@@ -17,10 +20,27 @@ export const LoginPage = () => {
   const location = useLocation();
   const [login, { isLoading, error }] = useLoginMutation();
 
+  const [setupGate, setSetupGate] = useState<'checking' | 'needed' | 'ready'>('checking');
   const { control, handleSubmit } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: { email: '', password: '' },
   });
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${getApiBaseUrl()}/health`)
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data: { needsSetup?: boolean } | null) => {
+        if (cancelled) return;
+        setSetupGate(data?.needsSetup ? 'needed' : 'ready');
+      })
+      .catch(() => {
+        if (!cancelled) setSetupGate('ready');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const onSubmit = handleSubmit(async (values) => {
     try {
@@ -28,14 +48,15 @@ export const LoginPage = () => {
       const state = location.state as LocationState | null;
       const from = state?.from;
       const next =
-        from && from !== ROUTES.HOME && from !== ROUTES.LOGIN
-          ? from
-          : ROUTES.DASHBOARD;
+        from && from !== ROUTES.HOME && from !== ROUTES.LOGIN ? from : ROUTES.DASHBOARD;
       navigate(next, { replace: true });
     } catch {
       /* error surfaced via the `error` state */
     }
   });
+
+  if (setupGate === 'checking') return <Loader message="Checking this computer…" />;
+  if (setupGate === 'needed') return <Navigate to={ROUTES.SETUP} replace />;
 
   return (
     <Box component="form" onSubmit={onSubmit} noValidate>
@@ -66,12 +87,7 @@ export const LoginPage = () => {
             Forgot password?
           </Link>
         </Box>
-        <Button
-          type="submit"
-          variant="contained"
-          size="large"
-          disabled={isLoading}
-        >
+        <Button type="submit" variant="contained" size="large" disabled={isLoading}>
           {isLoading ? 'Signing in…' : 'Sign in'}
         </Button>
       </Stack>

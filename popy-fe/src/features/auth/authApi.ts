@@ -1,5 +1,6 @@
 import { baseApi } from '@/api/baseApi';
 import { logout, setCredentials } from './authSlice';
+import type { DesktopSetupValues } from './schemas';
 import type {
   AuthResponse,
   ForgotPasswordRequest,
@@ -9,6 +10,13 @@ import type {
 
 export const authApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
+    setupDesktop: builder.mutation<
+      { message: string },
+      Omit<DesktopSetupValues, 'confirmPassword'>
+    >({
+      query: (body) => ({ url: '/setup', method: 'POST', data: body }),
+    }),
+
     login: builder.mutation<AuthResponse, LoginRequest>({
       query: (body) => ({ url: '/auth/login', method: 'POST', data: body }),
       async onQueryStarted(_arg, { dispatch, queryFulfilled }) {
@@ -33,10 +41,7 @@ export const authApi = baseApi.injectEndpoints({
       },
     }),
 
-    forgotPassword: builder.mutation<
-      { message: string },
-      ForgotPasswordRequest
-    >({
+    forgotPassword: builder.mutation<{ message: string }, ForgotPasswordRequest>({
       query: (body) => ({
         url: '/auth/forgot-password',
         method: 'POST',
@@ -56,6 +61,7 @@ export const authApi = baseApi.injectEndpoints({
 });
 
 export const {
+  useSetupDesktopMutation,
   useLoginMutation,
   useLogoutMutation,
   useForgotPasswordMutation,

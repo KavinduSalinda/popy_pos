@@ -1,0 +1,19 @@
+Popy POS includes unmodified third-party programs so a shop computer can run without a separate database install.
+
+MySQL Community Server 8.4
+Copyright (c) Oracle and/or its affiliates.
+License: GNU General Public License v2
+The MySQL license file ships with this installation at resources\mysql\LICENSE.
+Source code for this MySQL version: https://github.com/mysql/mysql-server/tree/8.4
+Download page: https://dev.mysql.com/downloads/mysql/
+
+Popy talks to MySQL on this computer only. Popy is a separate program and does not modify MySQL.
+
+Python embeddable package
+License: PSF License
+https://docs.python.org/3/license.html
+The Python license text ships at resources\python\LICENSE.txt when that file is included in the embeddable distribution.
+
+Microsoft Visual C++ Redistributable
+Installed only if this PC does not already have it. MySQL needs that runtime.
+https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist

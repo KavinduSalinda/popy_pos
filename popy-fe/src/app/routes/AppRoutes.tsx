@@ -7,65 +7,34 @@ import { ProtectedRoute } from './ProtectedRoute';
 import { ROUTES } from '@/constants';
 import { PERMISSIONS } from '@/constants/permissions';
 import { Loader } from '@/components/common/Loader';
-import {
-  ForbiddenPage,
-  NotFoundPage,
-  ServerErrorPage,
-} from '@/components/common';
+import { ForbiddenPage, NotFoundPage, ServerErrorPage } from '@/components/common';
 
 const HomePage = lazy(() => import('@/features/home/pages/HomePage'));
 
 const LoginPage = lazy(() => import('@/features/auth/pages/LoginPage'));
-const ForgotPasswordPage = lazy(
-  () => import('@/features/auth/pages/ForgotPasswordPage'),
-);
-const ResetPasswordPage = lazy(
-  () => import('@/features/auth/pages/ResetPasswordPage'),
-);
+const SetupPage = lazy(() => import('@/features/auth/pages/SetupPage'));
+const ForgotPasswordPage = lazy(() => import('@/features/auth/pages/ForgotPasswordPage'));
+const ResetPasswordPage = lazy(() => import('@/features/auth/pages/ResetPasswordPage'));
 
-const DashboardPage = lazy(
-  () => import('@/features/dashboard/pages/DashboardPage'),
-);
-const ProductsPage = lazy(
-  () => import('@/features/products/pages/ProductsPage'),
-);
-const CategoriesPage = lazy(
-  () => import('@/features/categories/pages/CategoriesPage'),
-);
-const InventoryPage = lazy(
-  () => import('@/features/inventory/pages/InventoryPage'),
-);
-const SuppliersPage = lazy(
-  () => import('@/features/suppliers/pages/SuppliersPage'),
-);
-const CustomersPage = lazy(
-  () => import('@/features/customers/pages/CustomersPage'),
-);
-const PurchasesPage = lazy(
-  () => import('@/features/purchases/pages/PurchasesPage'),
-);
+const DashboardPage = lazy(() => import('@/features/dashboard/pages/DashboardPage'));
+const ProductsPage = lazy(() => import('@/features/products/pages/ProductsPage'));
+const CategoriesPage = lazy(() => import('@/features/categories/pages/CategoriesPage'));
+const InventoryPage = lazy(() => import('@/features/inventory/pages/InventoryPage'));
+const SuppliersPage = lazy(() => import('@/features/suppliers/pages/SuppliersPage'));
+const CustomersPage = lazy(() => import('@/features/customers/pages/CustomersPage'));
+const PurchasesPage = lazy(() => import('@/features/purchases/pages/PurchasesPage'));
 const PurchaseDetailsPage = lazy(
   () => import('@/features/purchases/pages/PurchaseDetailsPage'),
 );
 const PosPage = lazy(() => import('@/features/sales/pages/PosPage'));
-const SalesHistoryPage = lazy(
-  () => import('@/features/sales/pages/SalesHistoryPage'),
-);
-const SaleDetailsPage = lazy(
-  () => import('@/features/sales/pages/SaleDetailsPage'),
-);
+const SalesHistoryPage = lazy(() => import('@/features/sales/pages/SalesHistoryPage'));
+const SaleDetailsPage = lazy(() => import('@/features/sales/pages/SaleDetailsPage'));
 const ReturnsPage = lazy(() => import('@/features/returns/pages/ReturnsPage'));
 const UsersPage = lazy(() => import('@/features/users/pages/UsersPage'));
 const ReportsPage = lazy(() => import('@/features/reports/pages/ReportsPage'));
-const AttendancePage = lazy(
-  () => import('@/features/attendance/pages/AttendancePage'),
-);
-const SettingsPage = lazy(
-  () => import('@/features/settings/pages/SettingsPage'),
-);
-const HandbookPage = lazy(
-  () => import('@/features/handbook/pages/HandbookPage'),
-);
+const AttendancePage = lazy(() => import('@/features/attendance/pages/AttendancePage'));
+const SettingsPage = lazy(() => import('@/features/settings/pages/SettingsPage'));
+const HandbookPage = lazy(() => import('@/features/handbook/pages/HandbookPage'));
 
 export const AppRoutes = () => (
   <Routes>
@@ -82,6 +51,7 @@ export const AppRoutes = () => (
 
     <Route element={<AuthLayout />}>
       <Route path={ROUTES.LOGIN} element={<LoginPage />} />
+      <Route path={ROUTES.SETUP} element={<SetupPage />} />
       <Route path={ROUTES.FORGOT_PASSWORD} element={<ForgotPasswordPage />} />
       <Route path={ROUTES.RESET_PASSWORD} element={<ResetPasswordPage />} />
     </Route>

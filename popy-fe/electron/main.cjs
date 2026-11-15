@@ -1,7 +1,8 @@
 const { app, BrowserWindow, shell, Menu } = require('electron');
 const path = require('path');
+const { startStack, stopStack } = require('./supervisor.cjs');
 
-const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
+let stackStarted = false;
 const devServerUrl = process.env.ELECTRON_START_URL || 'http://localhost:5173';
 
 let mainWindow = null;
@@ -37,21 +38,18 @@ function createWindow() {
     return { action: 'deny' };
   });
 
-  if (isDev) {
+  if (!app.isPackaged) {
     mainWindow.loadURL(devServerUrl).catch(() => {
       console.log('Dev server not ready yet, retrying in 1s...');
       setTimeout(() => {
         mainWindow.loadURL(devServerUrl);
       }, 1000);
     });
-    // Open DevTools in dev mode if requested
     if (process.env.OPEN_DEVTOOLS === 'true') {
       mainWindow.webContents.openDevTools();
     }
   } else {
-    // Production build
-    const indexPath = path.join(__dirname, '../dist/index.html');
-    mainWindow.loadFile(indexPath);
+    mainWindow.loadFile(path.join(__dirname, 'starting.html'));
   }
 
   mainWindow.on('closed', () => {
@@ -142,14 +140,44 @@ if (!gotTheLock) {
     }
   });
 
-  app.whenReady().then(() => {
+  const showStartError = (error) => {
+    const message = String(error && error.message ? error.message : error)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;');
+    const html = `<!DOCTYPE html><html><body style="margin:0;min-height:100vh;display:grid;place-items:center;background:#0e192b;color:#e8eef8;font:15px/1.5 Segoe UI,sans-serif"><main style="max-width:560px;padding:24px"><h1 style="font-size:22px">Popy could not start</h1><pre style="white-space:pre-wrap;color:#f3c1c1">${message}</pre><p style="color:#b7c3d6">Details are in %LOCALAPPDATA%\\Popy POS\\logs\\desktop.log</p></main></body></html>`;
+    if (mainWindow) {
+      mainWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+    }
+  };
+
+  app.whenReady().then(async () => {
     createWindow();
+
+    if (app.isPackaged) {
+      try {
+        const { apiUrl } = await startStack();
+        stackStarted = true;
+        await mainWindow.loadURL(`${apiUrl}/#/login`);
+      } catch (error) {
+        await stopStack().catch(() => undefined);
+        showStartError(error);
+      }
+    }
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) {
         createWindow();
       }
     });
+  });
+
+  app.on('before-quit', (event) => {
+    if (!stackStarted) return;
+    event.preventDefault();
+    stackStarted = false;
+    stopStack()
+      .catch(() => undefined)
+      .finally(() => app.quit());
   });
 }
 

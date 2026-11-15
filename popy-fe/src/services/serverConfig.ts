@@ -17,7 +17,7 @@ export const isElectron = (): boolean => {
   if (typeof window === 'undefined') return false;
   return Boolean(
     (window as unknown as { electron?: unknown }).electron ||
-      window.navigator.userAgent.toLowerCase().includes('electron'),
+    window.navigator.userAgent.toLowerCase().includes('electron'),
   );
 };
 
@@ -28,6 +28,37 @@ export const getDefaultApiBaseUrl = (): string => {
   return import.meta.env.VITE_API_BASE_URL ?? '/api';
 };
 
+/**
+ * Packaged Popy serves the UI from the private Django port.
+ * The Vite dev server stays on 5173 and keeps talking to port 8000.
+ */
+const pageOriginApi = (): string | null => {
+  if (typeof window === 'undefined') return null;
+  const { protocol, hostname, port } = window.location;
+  const local = hostname === '127.0.0.1' || hostname === 'localhost';
+  if (protocol !== 'http:' || !local || !port || port === '5173') return null;
+  return `${protocol}//${hostname}:${port}/api`;
+};
+
+const readSavedConfig = (): ServerConfig | null => {
+  try {
+    const raw = window.localStorage.getItem(SERVER_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<ServerConfig>;
+    if (!parsed.url || typeof parsed.url !== 'string') return null;
+    return {
+      mode:
+        parsed.mode ??
+        (parsed.url.includes('127.0.0.1') || parsed.url.includes('localhost')
+          ? 'localhost'
+          : 'custom'),
+      url: parsed.url.replace(/\/+$/, ''),
+    };
+  } catch {
+    return null;
+  }
+};
+
 export const getServerConfig = (): ServerConfig => {
   if (typeof window === 'undefined') {
     return {
@@ -36,20 +67,11 @@ export const getServerConfig = (): ServerConfig => {
     };
   }
 
-  try {
-    const raw = window.localStorage.getItem(SERVER_STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw) as Partial<ServerConfig>;
-      if (parsed.url && typeof parsed.url === 'string') {
-        return {
-          mode: parsed.mode ?? (parsed.url.includes('127.0.0.1') || parsed.url.includes('localhost') ? 'localhost' : 'custom'),
-          url: parsed.url.replace(/\/+$/, ''),
-        };
-      }
-    }
-  } catch {
-    /* fallback below */
-  }
+  const saved = readSavedConfig();
+  const bundled = pageOriginApi();
+  if (saved && saved.mode !== 'localhost') return saved;
+  if (bundled) return { mode: 'localhost', url: bundled };
+  if (saved) return saved;
 
   const defaultUrl = getDefaultApiBaseUrl();
   const defaultMode: ServerMode =
@@ -78,7 +100,9 @@ export const setServerConfig = (config: ServerConfig): void => {
       url: config.url.trim().replace(/\/+$/, ''),
     };
     window.localStorage.setItem(SERVER_STORAGE_KEY, JSON.stringify(sanitized));
-    window.dispatchEvent(new CustomEvent('popy:server-config-changed', { detail: sanitized }));
+    window.dispatchEvent(
+      new CustomEvent('popy:server-config-changed', { detail: sanitized }),
+    );
   } catch {
     /* ignore storage errors */
   }

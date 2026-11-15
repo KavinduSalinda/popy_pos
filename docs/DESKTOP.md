@@ -1,60 +1,40 @@
-# Popy POS Desktop App (Electron)
+# Popy POS Desktop App
 
-This repository includes an Electron desktop wrapper for **Popy POS**, allowing cashiers and store managers to run Popy as a native Windows desktop application.
+The Windows installer is one setup file. It contains the POS window, the Django server, and a private MySQL 8.4. Installing it does not add a Windows MySQL service and does not download anything else. MySQL listens on 127.0.0.1 only, on port 3307 or the next free port, never 3306.
 
----
+Shop data stays in `%LOCALAPPDATA%\Popy POS`. Reinstalling the program does not delete sales. The uninstaller leaves that folder in place.
 
-## 🚀 Running the Desktop App in Development
+The first launch asks for the shop name and the first admin account. Later launches open the login screen.
 
-1. **Start the local Django backend** (in `popy-be`):
+## Development
+
+Development still uses the Vite server and a Django process you start yourself. It does not start the private MySQL.
+
+1. Start Django in `popy-be`:
+
    ```bash
-   cd popy-be
    python manage.py runserver 127.0.0.1:8000
    ```
 
-2. **Start the Electron app with live reload** (in `popy-fe`):
+2. Start Electron in `popy-fe`:
+
    ```bash
-   cd popy-fe
    npm run electron:dev
    ```
-   This will start the Vite dev server and launch Electron connected to `http://localhost:5173`.
 
----
+The dev window talks to `http://127.0.0.1:8000/api`. The Server settings screen can still point at the cloud API or another URL.
 
-## 🛠️ Testing Localhost vs Cloud Server Connections
+## Build the installer
 
-By default, the desktop app is configured to connect to **Localhost Backend** (`http://127.0.0.1:8000/api`).
-
-### Switching or Configuring Server Before Login
-1. On the login screen, click the **Server: Localhost / Cloud** badge at the top-right (or click **"Server settings"** below the login card).
-2. You can:
-   - Choose **Localhost Backend** (`http://127.0.0.1:8000/api`) for local store usage.
-   - Choose **Cloud Backend** (`https://kavindu10.pythonanywhere.com/api`) for remote hosted database.
-   - Enter a **Custom Server URL** (e.g., store local network server `http://192.168.1.100:8000/api`).
-3. Click **"Test Connection"** to verify that the backend is online and check response latency.
-4. Click **"Apply Settings"**. The choice is saved in `localStorage` and persists across launches.
-
----
-
-## 📦 Building the Desktop Application (`.exe` Installer)
-
-To package the desktop application into a standalone Windows installer and portable `.exe`:
+On a Windows machine with Node.js and internet access:
 
 ```bash
 cd popy-fe
 npm run electron:build
 ```
 
-The output installers will be created in `popy-fe/release/`:
-- **Installer:** `Popy POS Setup 1.0.0.exe` (NSIS installer with desktop & start menu shortcuts)
-- **Portable:** `Popy POS 1.0.0.exe` (Standalone portable single executable)
+That command downloads MySQL, embeddable Python, and the Visual C++ runtime into `desktop/runtime` (gitignored), copies the Django project, then builds `popy-fe/release/Popy POS Setup 1.0.0.exe`.
 
-To quickly pack the app into a directory without creating the installer:
-```bash
-npm run electron:pack
-```
+The setup file installs the Visual C++ 2022 runtime if the PC does not already have it, because MySQL needs it.
 
-To preview the production package locally:
-```bash
-npm run electron:preview
-```
+MySQL Community Server is GPL. The installer shows `desktop/THIRD_PARTY_NOTICES.txt`, and the MySQL license file is included under `resources\mysql\LICENSE`.

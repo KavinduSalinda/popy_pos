@@ -19,8 +19,8 @@
     "prepare": "husky || true",
     "electron:dev": "concurrently -k \"cross-env ELECTRON=true vite\" \"wait-on tcp:5173 && electron electron/main.cjs\"",
     "electron:preview": "cross-env ELECTRON=true tsc -b && cross-env ELECTRON=true vite build && cross-env NODE_ENV=production electron electron/main.cjs",
-    "electron:pack": "cross-env ELECTRON=true tsc -b && cross-env ELECTRON=true vite build && electron-builder --dir",
-    "electron:build": "cross-env ELECTRON=true tsc -b && cross-env ELECTRON=true vite build && electron-builder"
+    "electron:pack": "powershell -NoProfile -ExecutionPolicy Bypass -File ../desktop/fetch-runtime.ps1 && tsc -b && vite build && electron-builder --dir",
+    "electron:build": "powershell -NoProfile -ExecutionPolicy Bypass -File ../desktop/fetch-runtime.ps1 && tsc -b && vite build && electron-builder"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
@@ -98,21 +98,49 @@
     "directories": {
       "output": "release"
     },
+    "asar": false,
+    "electronDist": "node_modules/electron/dist",
+    "beforeBuild": "./electron/skip-node-modules.cjs",
     "files": [
       "dist/**/*",
       "electron/**/*"
     ],
+    "extraResources": [
+      {
+        "from": "../desktop/runtime/python",
+        "to": "python"
+      },
+      {
+        "from": "../desktop/runtime/mysql",
+        "to": "mysql"
+      },
+      {
+        "from": "../desktop/runtime/backend",
+        "to": "backend"
+      },
+      {
+        "from": "../desktop/runtime/vc_redist.x64.exe",
+        "to": "vc_redist.x64.exe"
+      },
+      {
+        "from": "../desktop/THIRD_PARTY_NOTICES.txt",
+        "to": "THIRD_PARTY_NOTICES.txt"
+      }
+    ],
     "win": {
       "target": [
-        "nsis",
-        "portable"
-      ]
+        "nsis"
+      ],
+      "signAndEditExecutable": false
     },
     "nsis": {
       "oneClick": false,
+      "perMachine": true,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
-      "createStartMenuShortcut": true
+      "createStartMenuShortcut": true,
+      "license": "../desktop/THIRD_PARTY_NOTICES.txt",
+      "include": "electron/installer.nsh"
     }
   }
 }

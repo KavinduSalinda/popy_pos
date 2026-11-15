@@ -35,3 +35,5 @@ tests/.test_db.sqlite3
 # Electron / build caches
 *.blockmap
 .cache/
+desktop/runtime/
+desktop/cache/
