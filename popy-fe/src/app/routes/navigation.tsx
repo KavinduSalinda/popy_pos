@@ -28,6 +28,8 @@ export interface NavItem {
   requiresPro?: boolean;
   /** Show for every signed-in user, with no permission check. */
   alwaysVisible?: boolean;
+  /** Keep the route, but leave this item out of the sidebar for now. */
+  hidden?: boolean;
 }
 
 export const NAV_ITEMS: NavItem[] = [
@@ -49,6 +51,7 @@ export const NAV_ITEMS: NavItem[] = [
     icon: EventAvailable,
     anyOf: [PERMISSIONS.ATTENDANCE_MARK, PERMISSIONS.ATTENDANCE_VIEW],
     requiresPro: true,
+    hidden: true,
   },
   {
     label: 'Products',

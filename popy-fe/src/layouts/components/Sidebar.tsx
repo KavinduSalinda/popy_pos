@@ -74,6 +74,7 @@ const NavList = ({
   const isProShop = currentShop?.plan === 'PRO';
 
   const items = NAV_ITEMS.filter((item) => {
+    if (item.hidden) return false;
     if (item.alwaysVisible) return true;
     if (item.anyOf?.length) return item.anyOf.some((p) => hasPermission(p));
     if (item.permission) return hasPermission(item.permission);
