@@ -5,6 +5,7 @@ from rest_framework.views import APIView
 
 from apps.catalog.models import Category, Product
 from apps.catalog.serializers import CategorySerializer, PosProductSerializer
+from apps.core.notifications.service import notifications_enabled
 from apps.core.permissions import HasPOSPermission
 from apps.core.shop_context import ShopScopedMixin
 from apps.core.utils import dict_to_camel_case
@@ -28,7 +29,7 @@ class BootstrapSyncView(ShopScopedMixin, APIView):
         )
         customers = Customer.objects.filter(shop=shop).order_by("name")[:200]
         settings = NotificationSettings.load(shop)
-        pro = shop.is_pro
+        channels = shop.is_pro and notifications_enabled()
 
         return Response(
             dict_to_camel_case(
@@ -37,11 +38,11 @@ class BootstrapSyncView(ShopScopedMixin, APIView):
                     "products": PosProductSerializer(products, many=True).data,
                     "customers": CustomerSerializer(customers, many=True).data,
                     "checkout_settings": {
-                        "email_enabled": pro and settings.pos_checkout_email_enabled,
-                        "sms_enabled": pro and settings.pos_checkout_sms_enabled,
-                        "cashier_email_enabled": pro
+                        "email_enabled": channels and settings.pos_checkout_email_enabled,
+                        "sms_enabled": channels and settings.pos_checkout_sms_enabled,
+                        "cashier_email_enabled": channels
                         and settings.pos_checkout_cashier_email_enabled,
-                        "cashier_sms_enabled": pro
+                        "cashier_sms_enabled": channels
                         and settings.pos_checkout_cashier_sms_enabled,
                     },
                 }

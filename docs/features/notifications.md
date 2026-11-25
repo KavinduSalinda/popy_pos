@@ -4,6 +4,8 @@
 
 Popy POS sends transactional email and SMS through external providers. Notifications are optional, configurable per scenario, and never block core business operations if delivery fails.
 
+Email and SMS run on the cloud server, and only for a Pro shop. The desktop server leaves `NOTIFICATIONS_ENABLED` off, so it does not send or save these settings. Attendance and the other Pro features still work on the desktop app.
+
 ## Providers
 
 | Channel | Provider | Environment variables |

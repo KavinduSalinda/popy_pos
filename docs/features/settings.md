@@ -2,7 +2,7 @@
 
 ## Overview
 
-The settings page (`/settings`) lets Super Admins and **Managers** configure **per-shop** notification behaviour. Each shop has its own notification settings record.
+The settings page (`/settings`) lets Super Admins and **Managers** configure **per-shop** notification behaviour. Each shop has its own notification settings record. On the cloud this page saves only for a Pro shop. On the desktop app the switches stay off, because email and SMS run on the cloud version.
 
 **Page:** `/settings`  
 **Access:** `SETTINGS_MANAGE` (Super Admin and Manager)

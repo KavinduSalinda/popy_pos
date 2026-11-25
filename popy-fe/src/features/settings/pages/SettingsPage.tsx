@@ -97,21 +97,27 @@ const defaultSettings: NotificationSettings = {
 interface NotificationSettingsFormProps {
   initialSettings: NotificationSettings;
   shopName?: string;
-  isPro: boolean;
+  channelsAvailable: boolean;
+  cloudOnly: boolean;
 }
 
 const NotificationSettingsForm = ({
   initialSettings,
   shopName,
-  isPro,
+  channelsAvailable,
+  cloudOnly,
 }: NotificationSettingsFormProps) => {
   const [form, setForm] = useState(initialSettings);
   const [updateSettings, { isLoading: saving }] =
     useUpdateNotificationSettingsMutation();
 
   const handleSave = async () => {
-    if (!isPro) {
-      toast.error('Activate the Pro plan to save notification settings.');
+    if (!channelsAvailable) {
+      toast.error(
+        cloudOnly
+          ? 'Email and SMS notifications run on the cloud version.'
+          : 'Activate the Pro plan to save notification settings.',
+      );
       return;
     }
     try {
@@ -147,14 +153,20 @@ const NotificationSettingsForm = ({
           <Button
             variant="contained"
             onClick={() => void handleSave()}
-            disabled={saving || !isPro}
+            disabled={saving || !channelsAvailable}
           >
             {saving ? 'Saving…' : 'Save changes'}
           </Button>
         }
       />
 
-      {!isPro ? (
+      {cloudOnly ? (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          Email and SMS notifications run on the cloud version. This desktop app
+          keeps every other feature.
+        </Alert>
+      ) : null}
+      {!channelsAvailable && !cloudOnly ? (
         <Alert severity="warning" sx={{ mb: 2 }}>
           Notification settings are a <strong>Pro</strong> feature. You can preview
           the options below, but activate the Pro plan for this shop to turn them on
@@ -167,7 +179,7 @@ const NotificationSettingsForm = ({
           <Stack
             spacing={3}
             divider={<Divider flexItem />}
-            sx={!isPro ? { opacity: 0.72 } : undefined}
+            sx={!channelsAvailable ? { opacity: 0.72 } : undefined}
           >
             <Box>
               <Typography variant="subtitle1" fontWeight={600}>
@@ -187,7 +199,7 @@ const NotificationSettingsForm = ({
                     control={
                       <Switch
                         checked={form.posCheckoutEmailEnabled}
-                        disabled={!isPro}
+                        disabled={!channelsAvailable}
                         onChange={(event) =>
                           setForm((prev) => ({
                             ...prev,
@@ -202,7 +214,7 @@ const NotificationSettingsForm = ({
                     control={
                       <Switch
                         checked={form.posCheckoutSmsEnabled}
-                        disabled={!isPro}
+                        disabled={!channelsAvailable}
                         onChange={(event) =>
                           setForm((prev) => ({
                             ...prev,
@@ -226,7 +238,7 @@ const NotificationSettingsForm = ({
                     control={
                       <Switch
                         checked={form.posCheckoutCashierEmailEnabled}
-                        disabled={!isPro || !form.posCheckoutEmailEnabled}
+                        disabled={!channelsAvailable || !form.posCheckoutEmailEnabled}
                         onChange={(event) =>
                           setForm((prev) => ({
                             ...prev,
@@ -241,7 +253,7 @@ const NotificationSettingsForm = ({
                     control={
                       <Switch
                         checked={form.posCheckoutCashierSmsEnabled}
-                        disabled={!isPro || !form.posCheckoutSmsEnabled}
+                        disabled={!channelsAvailable || !form.posCheckoutSmsEnabled}
                         onChange={(event) =>
                           setForm((prev) => ({
                             ...prev,
@@ -261,7 +273,7 @@ const NotificationSettingsForm = ({
               description="Alert staff when product stock drops to the reorder level."
               emailEnabled={form.lowInventoryEmailEnabled}
               smsEnabled={form.lowInventorySmsEnabled}
-              disabled={!isPro}
+              disabled={!channelsAvailable}
               onEmailChange={(value) =>
                 setForm((prev) => ({
                   ...prev,
@@ -277,7 +289,7 @@ const NotificationSettingsForm = ({
                     label="SMS alert phone"
                     helperText="Phone number for low-stock SMS alerts (e.g. 94771234567)"
                     value={form.lowInventoryAlertPhone}
-                    disabled={!isPro}
+                    disabled={!channelsAvailable}
                     onChange={(event) =>
                       setForm((prev) => ({
                         ...prev,
@@ -296,7 +308,7 @@ const NotificationSettingsForm = ({
               description="Welcome message when a new customer is created."
               emailEnabled={form.newCustomerEmailEnabled}
               smsEnabled={form.newCustomerSmsEnabled}
-              disabled={!isPro}
+              disabled={!channelsAvailable}
               onEmailChange={(value) =>
                 setForm((prev) => ({ ...prev, newCustomerEmailEnabled: value }))
               }
@@ -310,7 +322,7 @@ const NotificationSettingsForm = ({
               description="Notify staff when a new user account is created."
               emailEnabled={form.newUserEmailEnabled}
               smsEnabled={form.newUserSmsEnabled}
-              disabled={!isPro}
+              disabled={!channelsAvailable}
               onEmailChange={(value) =>
                 setForm((prev) => ({ ...prev, newUserEmailEnabled: value }))
               }
@@ -333,6 +345,7 @@ export const SettingsPage = () => {
     (shop) => String(shop.id) === String(currentShopId),
   );
   const isPro = currentShop?.plan === 'PRO' || data?.proEnabled === true;
+  const channelsAvailable = data?.channelsAvailable ?? isPro;
 
   if (isLoading || !data) {
     return (
@@ -342,8 +355,8 @@ export const SettingsPage = () => {
     );
   }
 
-  // Free shops always show toggles off (Pro feature defaults).
-  const initialSettings: NotificationSettings = isPro
+  // Locked shops always show toggles off.
+  const initialSettings: NotificationSettings = channelsAvailable
     ? data
     : {
         ...defaultSettings,
@@ -354,10 +367,11 @@ export const SettingsPage = () => {
 
   return (
     <NotificationSettingsForm
-      key={`${data.updatedAt}-${isPro ? 'pro' : 'free'}`}
+      key={`${data.updatedAt}-${channelsAvailable ? 'channels' : 'locked'}`}
       initialSettings={initialSettings}
       shopName={currentShop?.name}
-      isPro={Boolean(isPro)}
+      channelsAvailable={channelsAvailable}
+      cloudOnly={isPro && !channelsAvailable}
     />
   );
 };

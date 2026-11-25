@@ -15,6 +15,8 @@ export interface NotificationSettings {
   /** Present on GET; Pro-only feature gate. */
   isProFeature?: boolean;
   proEnabled?: boolean;
+  /** False on the desktop server, and on a cloud shop that is not Pro. */
+  channelsAvailable?: boolean;
 }
 
 export type NotificationSettingsPayload = Omit<
@@ -30,4 +32,5 @@ export interface PosCheckoutNotificationOptions {
   canSendEmail: boolean;
   canSendSms: boolean;
   proEnabled?: boolean;
+  channelsAvailable?: boolean;
 }

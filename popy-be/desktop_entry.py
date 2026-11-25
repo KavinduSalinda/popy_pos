@@ -70,6 +70,9 @@ def main() -> None:
     from django.core.management import call_command
 
     call_command("migrate", interactive=False)
+    from apps.core.desktop_setup import promote_desktop_shops_to_pro
+
+    promote_desktop_shops_to_pro()
     call_command("collectstatic", interactive=False, verbosity=0)
 
     from waitress import serve

@@ -134,6 +134,9 @@ CORS_ALLOW_HEADERS = (
     "x-shop-id",
 )
 
+# Email and SMS run on the cloud server. The desktop settings module turns this off.
+NOTIFICATIONS_ENABLED = True
+
 # Brevo (transactional email)
 BREVO_API_KEY = config("BREVO_API_KEY", default="")
 BREVO_SENDER_EMAIL = config("BREVO_SENDER_EMAIL", default="")

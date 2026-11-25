@@ -447,11 +447,11 @@ export const HANDBOOK_SECTIONS: HandbookSection[] = [
       },
       {
         title: 'Attendance',
-        body: 'Pro shops only. Manager, Cashier, and Inventory Officer clock in and out once each per day. Super Admin can view the sheet and does not mark attendance.',
+        body: 'Pro shops on the cloud, and every shop on the desktop app. Manager, Cashier, and Inventory Officer clock in and out once each per day. Super Admin can view the sheet and does not mark attendance.',
       },
       {
         title: 'Settings',
-        body: 'Pro shops only. Per-shop switches for checkout email and SMS, whether cashiers may send them, low-stock alerts, and messages for a new customer or a new user.',
+        body: 'Email and SMS run on the cloud version, and only for a Pro shop. Switches cover checkout receipts, whether cashiers may send them, low-stock alerts, and messages for a new customer or a new user. The desktop app does not send email or SMS.',
       },
       {
         title: 'Offline checkout',

@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib.auth import get_user_model
 
 from apps.core.notifications.email import send_email
@@ -6,6 +7,11 @@ from apps.core.permissions import role_has_permission
 from apps.settings.models import NotificationSettings
 
 User = get_user_model()
+
+
+def notifications_enabled() -> bool:
+    """Cloud servers send email and SMS. The desktop server does not."""
+    return bool(getattr(settings, "NOTIFICATIONS_ENABLED", True))
 
 
 def _get_settings(shop) -> NotificationSettings:
@@ -21,6 +27,8 @@ def _dispatch(*, email_enabled: bool, sms_enabled: bool, email: str | None, phon
 
 
 def notify_pos_checkout(sale, *, send_email: bool = False, send_sms: bool = False, user=None) -> None:
+    if not notifications_enabled():
+        return
     if not getattr(sale.shop, "is_pro", False):
         return
     settings = _get_settings(sale.shop)
@@ -84,6 +92,8 @@ def notify_pos_checkout(sale, *, send_email: bool = False, send_sms: bool = Fals
 
 
 def notify_low_inventory(product) -> None:
+    if not notifications_enabled():
+        return
     if not getattr(product.shop, "is_pro", False):
         return
     settings = _get_settings(product.shop)
@@ -112,6 +122,8 @@ def notify_low_inventory(product) -> None:
 
 
 def notify_new_customer(customer) -> None:
+    if not notifications_enabled():
+        return
     if not getattr(customer.shop, "is_pro", False):
         return
     settings = _get_settings(customer.shop)
@@ -133,6 +145,8 @@ def notify_new_customer(customer) -> None:
 
 
 def notify_new_user(user, *, temporary_password: str | None = None) -> None:
+    if not notifications_enabled():
+        return
     if not user.shop_id:
         return
     if not getattr(user.shop, "is_pro", False):

@@ -4,7 +4,9 @@ The Windows installer is one setup file. It contains the POS window, the Django 
 
 Shop data stays in `%LOCALAPPDATA%\Popy POS`. Reinstalling the program does not delete sales. The uninstaller leaves that folder in place.
 
-The first launch asks for the shop name and the first admin account. Later launches open the login screen.
+The first launch asks for the shop name and the first admin account, and creates that shop on the Pro plan. Shops already on this computer are marked Pro the next time the app starts. Later launches open the login screen.
+
+Attendance and the other Pro features work on this computer. Email and SMS stay on the cloud version: this server does not send them, and Settings leaves those switches off. If Server settings point the window at the cloud API, that cloud shop's plan decides, including email and SMS for a Pro shop.
 
 ## Development
 
@@ -23,6 +25,8 @@ Development still uses the Vite server and a Django process you start yourself. 
    ```
 
 The dev window talks to `http://127.0.0.1:8000/api`. The Server settings screen can still point at the cloud API or another URL.
+
+That Django process keeps the cloud rules: a shop stays Free until its plan is Pro, and email and SMS follow the plan. The packaged app uses the desktop rules instead. Start Django with `config.settings.desktop` when you need to try those rules outside the installer.
 
 ## Build the installer
 

@@ -16,7 +16,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts.models import User
-from apps.core.choices import Role
+from apps.core.choices import Role, ShopPlan
 from apps.core.serializers import CamelCaseSerializer
 from apps.settings.models import NotificationSettings
 from apps.shops.models import Shop
@@ -30,6 +30,11 @@ def needs_desktop_setup() -> bool:
     if not desktop_setup_enabled():
         return False
     return not User.objects.exists()
+
+
+def promote_desktop_shops_to_pro() -> int:
+    """The packaged app includes Pro. Existing shop rows stay; only the plan changes."""
+    return Shop.objects.exclude(plan=ShopPlan.PRO).update(plan=ShopPlan.PRO)
 
 
 def _is_loopback(request) -> bool:
@@ -96,6 +101,7 @@ class DesktopSetupView(APIView):
             shop = Shop.objects.create(
                 name=serializer.validated_data["shop_name"].strip(),
                 code=_shop_code(serializer.validated_data["shop_name"]),
+                plan=ShopPlan.PRO,
             )
             NotificationSettings.load(shop)
             User.objects.create_user(

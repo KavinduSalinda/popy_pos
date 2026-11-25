@@ -4,6 +4,8 @@ import pytest
 from rest_framework.test import APIClient
 
 from apps.accounts.models import User
+from apps.core.choices import ShopPlan
+from apps.core.desktop_setup import promote_desktop_shops_to_pro
 from apps.shops.models import Shop
 
 
@@ -32,7 +34,7 @@ class TestDesktopSetup:
 
         assert created.status_code == 201
         assert User.objects.filter(email="owner@shop.test", is_superuser=True).exists()
-        assert Shop.objects.filter(name="Popy Market").exists()
+        assert Shop.objects.get(name="Popy Market").plan == ShopPlan.PRO
 
         health = client.get("/api/health")
         assert health.json()["needsSetup"] is False
@@ -75,3 +77,11 @@ class TestDesktopSetup:
         )
 
         assert response.status_code == 404
+
+    def test_desktop_start_marks_existing_shops_pro(self, shop_a):
+        assert shop_a.plan == ShopPlan.FREE
+
+        promote_desktop_shops_to_pro()
+
+        shop_a.refresh_from_db()
+        assert shop_a.plan == ShopPlan.PRO

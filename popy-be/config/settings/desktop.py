@@ -58,6 +58,9 @@ if _frontend:
     WHITENOISE_ROOT = str(_frontend)
     WHITENOISE_INDEX_FILE = "index.html"
 
+# Attendance and the other Pro features stay on. Email and SMS stay on the cloud.
+NOTIFICATIONS_ENABLED = False
+
 _security_idx = MIDDLEWARE.index("django.middleware.security.SecurityMiddleware")  # noqa: F405
 MIDDLEWARE = [  # noqa: F405
     *MIDDLEWARE[: _security_idx + 1],  # noqa: F405
