@@ -32,6 +32,7 @@ const SaleDetailsPage = lazy(() => import('@/features/sales/pages/SaleDetailsPag
 const ReturnsPage = lazy(() => import('@/features/returns/pages/ReturnsPage'));
 const UsersPage = lazy(() => import('@/features/users/pages/UsersPage'));
 const ReportsPage = lazy(() => import('@/features/reports/pages/ReportsPage'));
+const InsightsPage = lazy(() => import('@/features/insights/pages/InsightsPage'));
 const AttendancePage = lazy(() => import('@/features/attendance/pages/AttendancePage'));
 const SettingsPage = lazy(() => import('@/features/settings/pages/SettingsPage'));
 const HandbookPage = lazy(() => import('@/features/handbook/pages/HandbookPage'));
@@ -164,6 +165,14 @@ export const AppRoutes = () => (
         element={
           <ProtectedRoute permission={PERMISSIONS.REPORT_VIEW}>
             <ReportsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path={ROUTES.INSIGHTS}
+        element={
+          <ProtectedRoute permission={PERMISSIONS.REPORT_VIEW}>
+            <InsightsPage />
           </ProtectedRoute>
         }
       />

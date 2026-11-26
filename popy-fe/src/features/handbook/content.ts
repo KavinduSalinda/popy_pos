@@ -454,6 +454,10 @@ export const HANDBOOK_SECTIONS: HandbookSection[] = [
         body: 'Email and SMS run on the cloud version, and only for a Pro shop. Switches cover checkout receipts, whether cashiers may send them, low-stock alerts, and messages for a new customer or a new user. The desktop app does not send email or SMS.',
       },
       {
+        title: 'Insights',
+        body: 'The requirements report estimates units to buy for 7, 30, and 90 days from the last 30 days of sales. A written forecast and questions use a free Groq key saved for this shop.',
+      },
+      {
         title: 'Offline checkout',
         body: 'The point of sale catalog, customers, and checkout work offline and sync later. Adjustments, purchases, returns, the dashboard, and settings need a connection.',
       },

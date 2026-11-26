@@ -25,6 +25,7 @@ export const ROUTES = {
   RETURNS: '/returns',
   USERS: '/users',
   REPORTS: '/reports',
+  INSIGHTS: '/insights',
   SETTINGS: '/settings',
   ATTENDANCE: '/attendance',
   HANDBOOK: '/handbook',

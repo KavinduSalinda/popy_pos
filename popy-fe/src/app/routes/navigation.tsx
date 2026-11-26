@@ -11,6 +11,7 @@ import ReceiptLong from '@mui/icons-material/ReceiptLong';
 import AssignmentReturn from '@mui/icons-material/AssignmentReturn';
 import ManageAccounts from '@mui/icons-material/ManageAccounts';
 import Assessment from '@mui/icons-material/Assessment';
+import Insights from '@mui/icons-material/Insights';
 import Settings from '@mui/icons-material/Settings';
 import EventAvailable from '@mui/icons-material/EventAvailable';
 import MenuBook from '@mui/icons-material/MenuBook';
@@ -105,6 +106,12 @@ export const NAV_ITEMS: NavItem[] = [
     label: 'Reports',
     path: ROUTES.REPORTS,
     icon: Assessment,
+    permission: PERMISSIONS.REPORT_VIEW,
+  },
+  {
+    label: 'Insights',
+    path: ROUTES.INSIGHTS,
+    icon: Insights,
     permission: PERMISSIONS.REPORT_VIEW,
   },
   {

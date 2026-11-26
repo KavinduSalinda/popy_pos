@@ -14,6 +14,7 @@ export const TAG_TYPES = [
   'User',
   'Dashboard',
   'Report',
+  'Insight',
   'Settings',
   'Shop',
   'Attendance',

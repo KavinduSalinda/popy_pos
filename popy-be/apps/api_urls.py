@@ -5,6 +5,7 @@ from apps.accounts.views import UserViewSet
 from apps.attendance.views import AttendanceListView, MarkAttendanceView, MyAttendanceTodayView
 from apps.catalog.views import CategoryViewSet, PosProductListView, PosProductLookupView, ProductViewSet
 from apps.dashboard.views import DashboardViewSet
+from apps.insights.views import InsightAskView, InsightSettingsView, InsightSummaryView, RequirementsView
 from apps.inventory.views import InventoryViewSet, StockAdjustmentCreateView, StockTransactionListView
 from apps.parties.views import CustomerViewSet, SupplierViewSet
 from apps.purchasing.views import PurchaseViewSet
@@ -75,4 +76,8 @@ urlpatterns = [
     path("reports/purchases", reports_purchases, name="reports-purchases"),
     path("reports/customers", reports_customers, name="reports-customers"),
     path("reports/profit", reports_profit, name="reports-profit"),
+    path("insights/requirements", RequirementsView.as_view(), name="insights-requirements"),
+    path("insights/settings", InsightSettingsView.as_view(), name="insights-settings"),
+    path("insights/summary", InsightSummaryView.as_view(), name="insights-summary"),
+    path("insights/ask", InsightAskView.as_view(), name="insights-ask"),
 ] + router.urls

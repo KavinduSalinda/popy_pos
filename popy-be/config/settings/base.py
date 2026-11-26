@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     "apps.settings",
     "apps.sync",
     "apps.attendance",
+    "apps.insights",
 ]
 
 MIDDLEWARE = [
@@ -145,5 +146,9 @@ BREVO_SENDER_NAME = config("BREVO_SENDER_NAME", default="Popy POS")
 # Text.lk (SMS)
 TEXTLK_API_TOKEN = config("TEXTLK_API_TOKEN", default="")
 TEXTLK_SENDER_ID = config("TEXTLK_SENDER_ID", default="")
+
+# Groq free API for the Insights page. A per-shop key saved in the app overrides this.
+GROQ_API_KEY = config("GROQ_API_KEY", default="")
+GROQ_MODEL = config("GROQ_MODEL", default="openai/gpt-oss-120b")
 
 from config.jazzmin_settings import JAZZMIN_SETTINGS, JAZZMIN_UI_TWEAKS  # noqa: E402
