@@ -17,7 +17,7 @@ import { toast } from 'react-toastify';
 import { useAppSelector } from '@/app/hooks';
 import { PageHeader } from '@/components/common';
 import { useAuth } from '@/hooks';
-import { getErrorMessage } from '@/utils';
+import { getErrorMessage, requiredPhone } from '@/utils';
 import {
   useGetNotificationSettingsQuery,
   useUpdateNotificationSettingsMutation,
@@ -108,6 +108,7 @@ const NotificationSettingsForm = ({
   cloudOnly,
 }: NotificationSettingsFormProps) => {
   const [form, setForm] = useState(initialSettings);
+  const [phoneError, setPhoneError] = useState('');
   const [updateSettings, { isLoading: saving }] =
     useUpdateNotificationSettingsMutation();
 
@@ -120,6 +121,15 @@ const NotificationSettingsForm = ({
       );
       return;
     }
+    const phone = form.lowInventoryAlertPhone.trim();
+    if (form.lowInventorySmsEnabled) {
+      const parsed = requiredPhone().safeParse(phone);
+      if (!parsed.success) {
+        setPhoneError(parsed.error.issues[0]?.message ?? 'Enter a valid phone number');
+        return;
+      }
+    }
+    setPhoneError('');
     try {
       await updateSettings({
         posCheckoutEmailEnabled: form.posCheckoutEmailEnabled,
@@ -128,7 +138,7 @@ const NotificationSettingsForm = ({
         posCheckoutCashierSmsEnabled: form.posCheckoutCashierSmsEnabled,
         lowInventoryEmailEnabled: form.lowInventoryEmailEnabled,
         lowInventorySmsEnabled: form.lowInventorySmsEnabled,
-        lowInventoryAlertPhone: form.lowInventoryAlertPhone,
+        lowInventoryAlertPhone: phone,
         newCustomerEmailEnabled: form.newCustomerEmailEnabled,
         newCustomerSmsEnabled: form.newCustomerSmsEnabled,
         newUserEmailEnabled: form.newUserEmailEnabled,
@@ -287,15 +297,20 @@ const NotificationSettingsForm = ({
                 form.lowInventorySmsEnabled ? (
                   <TextField
                     label="SMS alert phone"
-                    helperText="Phone number for low-stock SMS alerts (e.g. 94771234567)"
+                    helperText={
+                      phoneError ||
+                      'Phone number for low-stock SMS alerts (e.g. 94771234567)'
+                    }
                     value={form.lowInventoryAlertPhone}
                     disabled={!channelsAvailable}
-                    onChange={(event) =>
+                    error={Boolean(phoneError)}
+                    onChange={(event) => {
+                      setPhoneError('');
                       setForm((prev) => ({
                         ...prev,
                         lowInventoryAlertPhone: event.target.value,
-                      }))
-                    }
+                      }));
+                    }}
                     size="small"
                     sx={{ mt: 2, maxWidth: 360 }}
                   />

@@ -1,20 +1,22 @@
 import { z } from 'zod';
+import { optionalText, requiredInt, requiredNumber } from '@/utils';
 
 export const purchaseItemSchema = z.object({
-  productId: z.union([z.string(), z.number()]).refine((v) => v !== '', {
+  productId: z.union([z.string(), z.number()]).refine((value) => String(value).trim() !== '', {
     message: 'Required',
   }),
-  quantity: z.number().int().min(1, 'Min 1'),
-  costPrice: z.number().min(0, 'Min 0'),
+  quantity: requiredInt(1, 'Min 1'),
+  costPrice: requiredNumber(0, 'Min 0'),
 });
 
 export const purchaseSchema = z.object({
-  supplierId: z.union([z.string(), z.number()]).refine((v) => v !== '', {
+  supplierId: z.union([z.string(), z.number()]).refine((value) => String(value).trim() !== '', {
     message: 'Supplier is required',
   }),
   status: z.enum(['DRAFT', 'ORDERED', 'RECEIVED']).optional(),
-  note: z.string().max(255).optional().or(z.literal('')),
+  note: optionalText(255),
   items: z.array(purchaseItemSchema).min(1, 'Add at least one item'),
 });
 
-export type PurchaseFormValues = z.infer<typeof purchaseSchema>;
+export type PurchaseFormInput = z.input<typeof purchaseSchema>;
+export type PurchaseFormValues = z.output<typeof purchaseSchema>;

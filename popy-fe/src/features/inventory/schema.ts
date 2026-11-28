@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { optionalText, positiveNumber, requiredNumber } from '@/utils';
 
 export const ADJUSTMENT_TYPES = [
   { value: 'DAMAGE', label: 'Damage' },
@@ -24,13 +25,14 @@ export const signedAdjustment = (type: string, quantity: number) => {
 };
 
 export const adjustmentSchema = z.object({
-  productId: z.union([z.string(), z.number()]).refine((v) => v !== '', {
+  productId: z.union([z.string(), z.number()]).refine((value) => String(value).trim() !== '', {
     message: 'Product is required',
   }),
   adjustmentType: z.enum(['DAMAGE', 'LOSS', 'EXPIRE', 'FOUND', 'ADD']),
-  quantity: z.number().positive('Quantity must be greater than 0'),
-  newTotal: z.number().min(0, 'Must be 0 or more'),
-  note: z.string().max(255).optional().or(z.literal('')),
+  quantity: positiveNumber(),
+  newTotal: requiredNumber(0),
+  note: optionalText(255),
 });
 
-export type AdjustmentFormValues = z.infer<typeof adjustmentSchema>;
+export type AdjustmentFormInput = z.input<typeof adjustmentSchema>;
+export type AdjustmentFormValues = z.output<typeof adjustmentSchema>;

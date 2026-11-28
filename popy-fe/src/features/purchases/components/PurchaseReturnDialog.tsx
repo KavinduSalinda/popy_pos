@@ -1,20 +1,17 @@
+import { useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button, Stack } from '@mui/material';
 import { toast } from 'react-toastify';
 import { Modal } from '@/components/dialogs';
 import { FormTextField } from '@/components/forms';
-import { getErrorMessage } from '@/utils';
+import { getErrorMessage, requiredNumber, requiredText } from '@/utils';
 import { useCreatePurchaseReturnMutation } from '@/features/returns/returnsApi';
 import { z } from 'zod';
 import type { Purchase } from '../types';
 
-const schema = z.object({
-  reason: z.string().min(1, 'Reason is required').max(255),
-  amount: z.number().min(0, 'Must be 0 or more'),
-});
-
-type FormValues = z.infer<typeof schema>;
+type ReturnInput = { reason: string; amount: number | '' };
+type ReturnValues = { reason: string; amount: number };
 
 interface PurchaseReturnDialogProps {
   open: boolean;
@@ -30,7 +27,18 @@ const PurchaseReturnForm = ({
   onClose: () => void;
 }) => {
   const [createReturn, { isLoading }] = useCreatePurchaseReturnMutation();
-  const { control, handleSubmit } = useForm<FormValues>({
+  const schema = useMemo(
+    () =>
+      z.object({
+        reason: requiredText('Reason', 255),
+        amount: requiredNumber(0).refine(
+          (value) => value <= Number(purchase.total),
+          `Cannot be more than ${purchase.total}`,
+        ),
+      }),
+    [purchase.total],
+  );
+  const { control, handleSubmit } = useForm<ReturnInput, unknown, ReturnValues>({
     resolver: zodResolver(schema),
     defaultValues: { reason: '', amount: purchase.total },
   });

@@ -87,7 +87,7 @@ export const CartPanel = ({ onCheckout }: CartPanelProps) => {
         onChange={(_e, value) => dispatch(setCustomer(value?.id ?? null))}
         isOptionEqualToValue={(o, v) => o.id === v.id}
         renderInput={(params) => (
-          <TextField {...params} label="Walk-in customer" />
+          <TextField {...params} label="Customer" />
         )}
       />
 

@@ -16,11 +16,11 @@ import { FormTextField } from '@/components/forms';
 import { BarcodeScanField } from '@/features/sales/components/BarcodeScanField';
 import { BarcodePrintDialog } from '@/components/barcode';
 import { generateProductBarcode } from '@/utils/barcode';
-import type { ProductFormValues } from '../schema';
+import type { ProductFormInput } from '../schema';
 
 interface ProductBarcodeFieldProps {
-  control: Control<ProductFormValues>;
-  setValue: UseFormSetValue<ProductFormValues>;
+  control: Control<ProductFormInput>;
+  setValue: UseFormSetValue<ProductFormInput>;
   barcode: string;
   productName: string;
   sku: string;

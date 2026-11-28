@@ -17,7 +17,7 @@ import { Modal } from '@/components/dialogs';
 import { useAppDispatch, useAppSelector } from '@/app/hooks';
 import { useGetCustomersQuery } from '@/features/customers/customersApi';
 import { useGetPosCheckoutNotificationOptionsQuery } from '@/features/settings/settingsApi';
-import { formatCurrency, getErrorMessage } from '@/utils';
+import { formatCurrency, getErrorMessage, parseAmountPaid } from '@/utils';
 import { logger } from '@/utils/logger';
 import { useOnlineStatus } from '@/offline/hooks/useOnlineStatus';
 import { canWorkOffline } from '@/offline/offlineAuth';
@@ -65,6 +65,7 @@ export const PaymentDialog = ({ open, onClose }: PaymentDialogProps) => {
     canSendSms: false,
   });
   const [amountPaid, setAmountPaid] = useState('');
+  const [amountError, setAmountError] = useState('');
   const [sendEmail, setSendEmail] = useState(false);
   const [sendSms, setSendSms] = useState(false);
   const [completedSale, setCompletedSale] = useState<Sale | null>(null);
@@ -83,6 +84,7 @@ export const PaymentDialog = ({ open, onClose }: PaymentDialogProps) => {
 
   const resetDialog = () => {
     setAmountPaid('');
+    setAmountError('');
     setSendEmail(false);
     setSendSms(false);
     setCompletedSale(null);
@@ -115,6 +117,11 @@ export const PaymentDialog = ({ open, onClose }: PaymentDialogProps) => {
   }, [open, isOffline, shopId]);
 
   const handleConfirm = async () => {
+    const paid = parseAmountPaid(amountPaid, totals.total);
+    if (!paid.ok) {
+      setAmountError(paid.message);
+      return;
+    }
     const payload: CreateSalePayload = {
       customerId: cart.customerId,
       items: cart.items.map((i) => ({
@@ -125,7 +132,7 @@ export const PaymentDialog = ({ open, onClose }: PaymentDialogProps) => {
       discount: totals.discount,
       tax: totals.tax,
       paymentMethod: cart.paymentMethod,
-      amountPaid: Number(displayAmountPaid) || totals.total,
+      amountPaid: paid.value,
       sendEmail: showEmailOption ? sendEmail : false,
       sendSms: showSmsOption ? sendSms : false,
     };
@@ -293,7 +300,12 @@ export const PaymentDialog = ({ open, onClose }: PaymentDialogProps) => {
                 type="number"
                 label="Amount paid"
                 value={displayAmountPaid}
-                onChange={(e) => setAmountPaid(e.target.value)}
+                onChange={(e) => {
+                  setAmountPaid(e.target.value);
+                  setAmountError('');
+                }}
+                error={Boolean(amountError)}
+                helperText={amountError || undefined}
               />
               <Stack direction="row" justifyContent="space-between">
                 <Typography color="text.secondary">Change</Typography>

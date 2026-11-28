@@ -14,6 +14,7 @@ import {
   isDecreaseAdjustment,
   roundStock,
   signedAdjustment,
+  type AdjustmentFormInput,
   type AdjustmentFormValues,
 } from '../schema';
 import type {
@@ -65,8 +66,11 @@ export const AdjustmentDialog = ({
     return options;
   }, [products, item]);
 
-  const { control, handleSubmit, reset, setValue, setError } =
-    useForm<AdjustmentFormValues>({
+  const { control, handleSubmit, reset, setValue, setError } = useForm<
+    AdjustmentFormInput,
+    unknown,
+    AdjustmentFormValues
+  >({
       resolver: zodResolver(adjustmentSchema),
       defaultValues: {
         productId: '',

@@ -1,11 +1,13 @@
 import { z } from 'zod';
+import { optionalEmail, optionalText, requiredInt, requiredPhone, requiredText } from '@/utils';
 
 export const customerSchema = z.object({
-  name: z.string().min(1, 'Name is required').max(120),
-  phone: z.string().min(5, 'Enter a valid phone number').max(20),
-  email: z.string().email('Enter a valid email').optional().or(z.literal('')),
-  address: z.string().max(255).optional().or(z.literal('')),
-  loyaltyPoints: z.number().int().min(0),
+  name: requiredText('Name', 120),
+  phone: requiredPhone(),
+  email: optionalEmail(),
+  address: optionalText(255),
+  loyaltyPoints: requiredInt(0, 'Must be 0 or more'),
 });
 
-export type CustomerFormValues = z.infer<typeof customerSchema>;
+export type CustomerFormInput = z.input<typeof customerSchema>;
+export type CustomerFormValues = z.output<typeof customerSchema>;

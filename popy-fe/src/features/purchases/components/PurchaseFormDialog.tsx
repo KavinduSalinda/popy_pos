@@ -21,7 +21,11 @@ import {
   useCreatePurchaseMutation,
   useUpdatePurchaseMutation,
 } from '../purchasesApi';
-import { purchaseSchema, type PurchaseFormValues } from '../schema';
+import {
+  purchaseSchema,
+  type PurchaseFormInput,
+  type PurchaseFormValues,
+} from '../schema';
 import type { Purchase, PurchasePayload } from '../types';
 
 interface PurchaseFormDialogProps {
@@ -89,7 +93,11 @@ const PurchaseFormBody = ({ purchase, onClose }: PurchaseFormBodyProps) => {
     [products],
   );
 
-  const { control, handleSubmit } = useForm<PurchaseFormValues>({
+  const { control, handleSubmit } = useForm<
+    PurchaseFormInput,
+    unknown,
+    PurchaseFormValues
+  >({
     resolver: zodResolver(purchaseSchema),
     defaultValues: purchase ? toFormValues(purchase) : EMPTY,
   });

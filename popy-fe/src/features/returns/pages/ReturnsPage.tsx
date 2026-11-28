@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
@@ -9,7 +9,6 @@ import {
   Stack,
   Tab,
   Tabs,
-  TextField,
   Typography,
 } from '@mui/material';
 import { toast } from 'react-toastify';
@@ -22,9 +21,11 @@ import {
   useLazyLookupSalesReturnQuery,
 } from '../returnsApi';
 import {
+  buildSalesReturnSchema,
   purchaseReturnSchema,
-  salesReturnSchema,
+  type PurchaseReturnFormInput,
   type PurchaseReturnFormValues,
+  type SalesReturnFormInput,
   type SalesReturnFormValues,
 } from '../schema';
 import type { SalesReturnLookup } from '../types';
@@ -36,10 +37,23 @@ const SalesReturnForm = () => {
   const [lookupSalesReturn, { isFetching }] = useLazyLookupSalesReturnQuery();
   const [found, setFound] = useState<SalesReturnLookup | null>(null);
   const [foundCode, setFoundCode] = useState('');
-  const [quantity, setQuantity] = useState<number | ''>(1);
-  const { control, handleSubmit, reset, setValue, getValues, watch } = useForm<SalesReturnFormValues>({
-    resolver: zodResolver(salesReturnSchema),
-    defaultValues: { code: '', reason: '', refundAmount: 0 },
+  const schema = useMemo(
+    () =>
+      buildSalesReturnSchema({
+        ready: Boolean(found),
+        match: found?.match ?? null,
+        quantityLeft: found?.quantityLeft ?? 0,
+        refundLeft: found?.refundLeft ?? 0,
+      }),
+    [found],
+  );
+  const { control, handleSubmit, reset, setValue, getValues, watch } = useForm<
+    SalesReturnFormInput,
+    unknown,
+    SalesReturnFormValues
+  >({
+    resolver: zodResolver(schema),
+    defaultValues: { code: '', reason: '', refundAmount: 0, quantity: '' },
   });
 
   const runLookup = async (raw: string) => {
@@ -49,7 +63,11 @@ const SalesReturnForm = () => {
       const result = await lookupSalesReturn(code).unwrap();
       setFound(result);
       setFoundCode(code);
-      setQuantity(result.match === 'product' ? result.suggestedQuantity : '');
+      setValue(
+        'quantity',
+        result.match === 'product' ? result.suggestedQuantity : '',
+        { shouldValidate: true },
+      );
       setValue('refundAmount', result.suggestedRefund, { shouldValidate: true });
     } catch (error) {
       setFound(null);
@@ -64,23 +82,18 @@ const SalesReturnForm = () => {
       toast.error('Find the bill, barcode, or SKU before processing the return.');
       return;
     }
-    if (found.match === 'product' && !(Number(quantity) > 0)) {
-      toast.error('Enter a quantity.');
-      return;
-    }
     try {
       await createSalesReturn({
         code,
         reason: values.reason,
         refundAmount: values.refundAmount,
         ...(found.match === 'product'
-          ? { quantity: Number(quantity) }
+          ? { quantity: Number(values.quantity) }
           : { items: [] }),
       }).unwrap();
       toast.success('Sales return recorded');
       setFound(null);
       setFoundCode('');
-      setQuantity(1);
       reset();
     } catch (error) {
       toast.error(getErrorMessage(error));
@@ -130,15 +143,12 @@ const SalesReturnForm = () => {
         </Box>
       ) : null}
       {productReturn && found ? (
-        <TextField
+        <FormTextField
+          name="quantity"
+          control={control}
           label="Quantity"
           type="number"
-          size="small"
-          value={quantity}
-          onChange={(event) => {
-            const raw = event.target.value;
-            setQuantity(raw === '' ? '' : Number(raw));
-          }}
+          helperText={`Up to ${formatQuantity(found.quantityLeft)}`}
           slotProps={{
             htmlInput: {
               min: 0.001,
@@ -146,7 +156,6 @@ const SalesReturnForm = () => {
               step: 0.001,
             },
           }}
-          helperText={`Up to ${formatQuantity(found.quantityLeft)}`}
         />
       ) : null}
       <FormTextField
@@ -182,7 +191,11 @@ const SalesReturnForm = () => {
 const PurchaseReturnForm = () => {
   const [createPurchaseReturn, { isLoading }] =
     useCreatePurchaseReturnMutation();
-  const { control, handleSubmit, reset } = useForm<PurchaseReturnFormValues>({
+  const { control, handleSubmit, reset } = useForm<
+    PurchaseReturnFormInput,
+    unknown,
+    PurchaseReturnFormValues
+  >({
     resolver: zodResolver(purchaseReturnSchema),
     defaultValues: { purchaseId: '', reason: '', amount: 0 },
   });

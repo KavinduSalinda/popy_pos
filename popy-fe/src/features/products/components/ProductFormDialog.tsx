@@ -15,6 +15,7 @@ import {
 import {
   PRODUCT_UNITS,
   productSchema,
+  type ProductFormInput,
   type ProductFormValues,
 } from '../schema';
 import type { Product, ProductPayload } from '../types';
@@ -55,7 +56,11 @@ export const ProductFormDialog = ({
     [categories],
   );
 
-  const { control, handleSubmit, reset, setValue } = useForm<ProductFormValues>(
+  const { control, handleSubmit, reset, setValue } = useForm<
+    ProductFormInput,
+    unknown,
+    ProductFormValues
+  >(
     {
       resolver: zodResolver(productSchema),
       defaultValues: EMPTY,

@@ -20,6 +20,7 @@ import {
 import DnsIcon from '@mui/icons-material/Dns';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import { customApiUrl } from '@/utils';
 import {
   DEFAULT_CLOUD_API_URL,
   DEFAULT_LOCAL_API_URL,
@@ -51,6 +52,7 @@ const ServerSettingsDialogBody = ({
       ? initial.url
       : initial.url || DEFAULT_LOCAL_API_URL,
   );
+  const [urlError, setUrlError] = useState('');
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{
     ok: boolean;
@@ -87,9 +89,18 @@ const ServerSettingsDialogBody = ({
   };
 
   const handleSave = () => {
+    let url = getActiveUrl(config.mode);
+    if (config.mode === 'custom') {
+      const parsed = customApiUrl.safeParse(customUrl);
+      if (!parsed.success) {
+        setUrlError(parsed.error.issues[0]?.message ?? 'Enter a valid server URL');
+        return;
+      }
+      url = parsed.data;
+    }
     const newConfig: ServerConfig = {
       mode: config.mode,
-      url: getActiveUrl(config.mode),
+      url,
     };
     setServerConfig(newConfig);
     onSaved?.(newConfig);
@@ -180,9 +191,11 @@ const ServerSettingsDialogBody = ({
               value={customUrl}
               onChange={(e) => {
                 setCustomUrl(e.target.value);
+                setUrlError('');
                 setTestResult(null);
               }}
-              helperText="Must include http:// or https:// and /api suffix"
+              error={Boolean(urlError)}
+              helperText={urlError || 'Must include http:// or https:// and /api suffix'}
               fullWidth
               size="small"
             />

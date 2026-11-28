@@ -1,11 +1,12 @@
 import { z } from 'zod';
+import { optionalEmail, optionalText, requiredPhone, requiredText } from '@/utils';
 
 export const supplierSchema = z.object({
-  name: z.string().min(1, 'Name is required').max(120),
-  companyName: z.string().max(120).optional().or(z.literal('')),
-  phone: z.string().min(5, 'Enter a valid phone number').max(20),
-  email: z.string().email('Enter a valid email').optional().or(z.literal('')),
-  address: z.string().max(255).optional().or(z.literal('')),
+  name: requiredText('Name', 120),
+  companyName: optionalText(120),
+  phone: requiredPhone(),
+  email: optionalEmail(),
+  address: optionalText(255),
 });
 
 export type SupplierFormValues = z.infer<typeof supplierSchema>;

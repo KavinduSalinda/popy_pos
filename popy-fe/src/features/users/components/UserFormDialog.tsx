@@ -9,7 +9,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { getErrorMessage } from '@/utils';
 import { getRoleOptionsForActor, ROLES, type Role } from '@/constants/roles';
 import { useCreateUserMutation, useUpdateUserMutation } from '../usersApi';
-import { userSchema, type UserFormValues } from '../schema';
+import { userCreateSchema, userEditSchema, type UserFormValues } from '../schema';
 import type { ManagedUser, UserPayload } from '../types';
 
 interface UserFormDialogProps {
@@ -41,7 +41,7 @@ export const UserFormDialog = ({
   );
 
   const { control, handleSubmit, reset } = useForm<UserFormValues>({
-    resolver: zodResolver(userSchema),
+    resolver: zodResolver(isEdit ? userEditSchema : userCreateSchema),
     defaultValues: EMPTY,
   });
 

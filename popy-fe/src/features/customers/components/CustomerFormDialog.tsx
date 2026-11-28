@@ -10,7 +10,11 @@ import {
   useCreateCustomerMutation,
   useUpdateCustomerMutation,
 } from '../customersApi';
-import { customerSchema, type CustomerFormValues } from '../schema';
+import {
+  customerSchema,
+  type CustomerFormInput,
+  type CustomerFormValues,
+} from '../schema';
 import type { Customer, CustomerPayload } from '../types';
 
 interface CustomerFormDialogProps {
@@ -36,7 +40,11 @@ export const CustomerFormDialog = ({
   const [updateCustomer, { isLoading: updating }] = useUpdateCustomerMutation();
   const isEdit = Boolean(customer);
 
-  const { control, handleSubmit, reset } = useForm<CustomerFormValues>({
+  const { control, handleSubmit, reset } = useForm<
+    CustomerFormInput,
+    unknown,
+    CustomerFormValues
+  >({
     resolver: zodResolver(customerSchema),
     defaultValues: EMPTY,
   });
