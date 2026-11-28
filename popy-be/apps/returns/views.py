@@ -9,7 +9,7 @@ from apps.core.choices import StockTransactionType
 from apps.core.permissions import HasPOSPermission
 from apps.core.services import adjust_stock
 from apps.core.shop_context import ShopScopedMixin
-from apps.core.utils import generate_reference
+from apps.core.utils import dict_to_camel_case, generate_reference
 from apps.purchasing.models import Purchase
 from apps.returns.models import PurchaseReturn, SalesReturn
 from apps.returns.serializers import (
@@ -18,6 +18,7 @@ from apps.returns.serializers import (
     SalesReturnCreateSerializer,
     SalesReturnSerializer,
 )
+from apps.returns.services import ReturnLookupError, create_sales_return, lookup_code
 from apps.sales.models import Sale
 
 
@@ -49,61 +50,44 @@ class ReturnViewSet(ShopScopedMixin, mixins.ListModelMixin, viewsets.GenericView
         return Response(combined)
 
 
+class SalesReturnLookupView(ShopScopedMixin, APIView):
+    permission_classes = [IsAuthenticated, HasPOSPermission]
+    required_permission = "RETURN_CREATE"
+
+    def get(self, request):
+        try:
+            payload = lookup_code(self.shop, request.query_params.get("code", ""))
+        except ReturnLookupError as exc:
+            return Response(
+                {"message": exc.message, "statusCode": exc.status_code},
+                status=exc.status_code,
+            )
+        return Response(dict_to_camel_case(payload))
+
+
 class SalesReturnCreateView(ShopScopedMixin, APIView):
     permission_classes = [IsAuthenticated, HasPOSPermission]
     required_permission = "RETURN_CREATE"
 
-    @transaction.atomic
     def post(self, request):
-        shop = self.shop
         serializer = SalesReturnCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
-
-        sale = _resolve_shop_document(
-            Sale.objects.prefetch_related("items__product").filter(shop=shop),
-            data["sale_id"],
-        )
-        if sale is None:
-            return Response(
-                {"message": "Sale not found", "statusCode": 404},
-                status=status.HTTP_404_NOT_FOUND,
+        try:
+            sales_return = create_sales_return(
+                self.shop,
+                code=data.get("code") or "",
+                sale_id=data.get("sale_id") or "",
+                reason=data["reason"],
+                refund_amount=data["refund_amount"],
+                items=data.get("items") or [],
+                quantity=data.get("quantity"),
             )
-
-        reference = generate_reference("SR", SalesReturn, shop=shop)
-        items = data.get("items") or []
-
-        if not items:
-            for sale_item in sale.items.all():
-                adjust_stock(
-                    sale_item.product,
-                    sale_item.quantity,
-                    StockTransactionType.RETURN,
-                    note=f"Sales return {reference}",
-                    reference_type="SalesReturn",
-                )
-        else:
-            for item in items:
-                product_id = item.get("productId") or item.get("product_id")
-                quantity = item.get("quantity", 0)
-                if product_id and quantity:
-                    product = Product.objects.select_for_update().get(pk=product_id, shop=shop)
-                    adjust_stock(
-                        product,
-                        quantity,
-                        StockTransactionType.RETURN,
-                        note=f"Sales return {reference}",
-                        reference_type="SalesReturn",
-                    )
-
-        sales_return = SalesReturn.objects.create(
-            shop=shop,
-            reference=reference,
-            sale=sale,
-            reason=data["reason"],
-            refund_amount=data["refund_amount"],
-            items=items,
-        )
+        except ReturnLookupError as exc:
+            return Response(
+                {"message": exc.message, "statusCode": exc.status_code},
+                status=exc.status_code,
+            )
         return Response(SalesReturnSerializer(sales_return).data, status=status.HTTP_201_CREATED)
 
 

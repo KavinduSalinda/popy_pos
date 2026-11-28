@@ -10,7 +10,12 @@ from apps.inventory.views import InventoryViewSet, StockAdjustmentCreateView, St
 from apps.parties.views import CustomerViewSet, SupplierViewSet
 from apps.purchasing.views import PurchaseViewSet
 from apps.reports.views import ReportViewSet
-from apps.returns.views import PurchaseReturnCreateView, ReturnViewSet, SalesReturnCreateView
+from apps.returns.views import (
+    PurchaseReturnCreateView,
+    ReturnViewSet,
+    SalesReturnCreateView,
+    SalesReturnLookupView,
+)
 from apps.sales.views import SaleViewSet
 from apps.settings.views import NotificationSettingsView, PosCheckoutNotificationOptionsView
 from apps.shops.views import AccessibleShopsView, ShopViewSet
@@ -64,6 +69,7 @@ urlpatterns = [
     path("pos/products/lookup", PosProductLookupView.as_view(), name="pos-products-lookup"),
     path("inventory/transactions", StockTransactionListView.as_view(), name="inventory-transactions"),
     path("inventory/adjustments", StockAdjustmentCreateView.as_view(), name="inventory-adjustments"),
+    path("returns/sales/lookup", SalesReturnLookupView.as_view(), name="returns-sales-lookup"),
     path("returns/sales", SalesReturnCreateView.as_view(), name="returns-sales"),
     path("returns/purchase", PurchaseReturnCreateView.as_view(), name="returns-purchase"),
     path("dashboard/summary", dashboard, name="dashboard-summary"),

@@ -91,6 +91,7 @@ def create_sale_from_payload(*, shop, user, payload: dict) -> tuple[Sale, str]:
             product=product,
             quantity=item_data["quantity"],
             unit_price=item_data["unit_price"],
+            cost_price=product.cost_price,
             total=line_total,
         )
         try:

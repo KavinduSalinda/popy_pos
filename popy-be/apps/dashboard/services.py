@@ -1,20 +1,20 @@
 """Aggregations for the dashboard overview."""
 
-from datetime import datetime, time, timedelta
+from datetime import datetime, time, timedelta, timezone as datetime_timezone
 from decimal import Decimal
+from zoneinfo import ZoneInfo
 
-from django.db.models import Count, DecimalField, ExpressionWrapper, F, Sum, Value
-from django.db.models.functions import Coalesce, TruncDay, TruncHour
+from django.db.models import Count, DecimalField, F, Sum, Value
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 
 from apps.catalog.models import Product
 from apps.returns.models import SalesReturn
+from apps.sales.figures import money_float, period_totals
 from apps.sales.models import Sale, SaleItem
 
 MONEY = DecimalField(max_digits=16, decimal_places=2)
 ZERO = Value(Decimal("0"), output_field=MONEY)
-QTY = DecimalField(max_digits=16, decimal_places=3)
-ZERO_QTY = Value(Decimal("0"), output_field=QTY)
 
 PAYMENT_LABELS = {
     "CASH": "Cash",
@@ -26,20 +26,28 @@ PAYMENT_ORDER = ("CASH", "CARD", "MOBILE", "CREDIT")
 
 
 def _money(value) -> float:
-    return round(float(value or 0), 2)
+    return money_float(value)
 
 
-def _as_date(value):
-    if isinstance(value, datetime):
-        if timezone.is_aware(value):
-            return timezone.localtime(value).date()
-        return value.date()
-    return value
+def _shop_zone(shop):
+    name = (getattr(shop, "timezone", None) or "UTC").strip() or "UTC"
+    try:
+        return ZoneInfo(name)
+    except Exception:
+        return ZoneInfo("UTC")
 
 
-def _start_of(day):
+def _local_stamp(value, zone):
+    if value is None:
+        return None
+    if timezone.is_aware(value):
+        return value.astimezone(zone)
+    return timezone.make_aware(value, datetime_timezone.utc).astimezone(zone)
+
+
+def _start_of(day, zone):
     naive = datetime.combine(day, time.min)
-    return timezone.make_aware(naive, timezone.get_current_timezone())
+    return timezone.make_aware(naive, zone)
 
 
 def _hour_label(hour: int) -> str:
@@ -48,19 +56,21 @@ def _hour_label(hour: int) -> str:
     return f"{hour12}{suffix}"
 
 
-def _bounds(days: int):
-    end_date = timezone.localdate()
+def _bounds(shop, days: int):
+    zone = _shop_zone(shop)
+    end_date = timezone.localdate(timezone=zone)
     start_date = end_date - timedelta(days=days - 1)
     prev_end_date = start_date - timedelta(days=1)
     prev_start_date = prev_end_date - timedelta(days=days - 1)
     return {
         "days": days,
+        "zone": zone,
         "start_date": start_date,
         "prev_start_date": prev_start_date,
-        "current_start": _start_of(start_date),
-        "current_end": _start_of(end_date + timedelta(days=1)),
-        "prev_start": _start_of(prev_start_date),
-        "prev_end": _start_of(start_date),
+        "current_start": _start_of(start_date, zone),
+        "current_end": _start_of(end_date + timedelta(days=1), zone),
+        "prev_start": _start_of(prev_start_date, zone),
+        "prev_end": _start_of(start_date, zone),
     }
 
 
@@ -76,44 +86,15 @@ def _items(shop, start, end):
     )
 
 
-def _daily_amounts(queryset, amount_field: str):
-    rows = (
-        queryset.annotate(day=TruncDay("created_at", tzinfo=timezone.get_current_timezone()))
-        .values("day")
-        .annotate(total=Coalesce(Sum(amount_field), ZERO))
-    )
-    return {_as_date(row["day"]): _money(row["total"]) for row in rows if row["day"] is not None}
-
-
-def _period_stats(shop, start, end):
-    sale_agg = _sales(shop, start, end).aggregate(
-        revenue=Coalesce(Sum("total"), ZERO),
-        transactions=Count("id"),
-        discounts=Coalesce(Sum("discount"), ZERO),
-    )
-    profit_expr = ExpressionWrapper(
-        (F("unit_price") - F("product__cost_price")) * F("quantity"),
-        output_field=MONEY,
-    )
-    item_agg = _items(shop, start, end).aggregate(
-        units=Coalesce(Sum("quantity"), ZERO_QTY),
-        profit=Coalesce(Sum(profit_expr), ZERO),
-    )
-    refunds = SalesReturn.objects.filter(shop=shop, created_at__gte=start, created_at__lt=end).aggregate(
-        total=Coalesce(Sum("refund_amount"), ZERO)
-    )
-    transactions = sale_agg["transactions"] or 0
-    revenue = sale_agg["revenue"] or Decimal("0")
-    quantity = item_agg["units"] or Decimal("0")
-    return {
-        "revenue": _money(revenue),
-        "transactions": transactions,
-        "average_order_value": _money(revenue / transactions) if transactions else 0,
-        "gross_profit": _money(item_agg["profit"]),
-        "items_per_transaction": round(float(quantity) / transactions, 1) if transactions else 0,
-        "refunds": _money(refunds["total"]),
-        "discounts": _money(sale_agg["discounts"]),
-    }
+def _daily_amounts(queryset, amount_field: str, zone):
+    totals = {}
+    for created_at, amount in queryset.values_list("created_at", amount_field):
+        local = _local_stamp(created_at, zone)
+        if local is None:
+            continue
+        day = local.date()
+        totals[day] = totals.get(day, Decimal("0")) + (amount or Decimal("0"))
+    return {day: _money(total) for day, total in totals.items()}
 
 
 def _comparison(current, previous):
@@ -121,8 +102,9 @@ def _comparison(current, previous):
 
 
 def _sales_trend(shop, bounds):
-    current = _daily_amounts(_sales(shop, bounds["current_start"], bounds["current_end"]), "total")
-    previous = _daily_amounts(_sales(shop, bounds["prev_start"], bounds["prev_end"]), "total")
+    zone = bounds["zone"]
+    current = _daily_amounts(_sales(shop, bounds["current_start"], bounds["current_end"]), "total", zone)
+    previous = _daily_amounts(_sales(shop, bounds["prev_start"], bounds["prev_end"]), "total", zone)
     points = []
     for offset in range(bounds["days"]):
         day = bounds["start_date"] + timedelta(days=offset)
@@ -157,20 +139,14 @@ def _categories(shop, start, end):
     ]
 
 
-def _sales_by_hour(shop, start, end):
-    rows = (
-        _sales(shop, start, end)
-        .annotate(bucket=TruncHour("created_at", tzinfo=timezone.get_current_timezone()))
-        .values("bucket")
-        .annotate(total=Coalesce(Sum("total"), ZERO))
-    )
-    buckets = [0.0] * 24
-    for row in rows:
-        bucket = row["bucket"]
-        if bucket is None:
+def _sales_by_hour(shop, start, end, zone):
+    buckets = [Decimal("0")] * 24
+    for created_at, total in _sales(shop, start, end).values_list("created_at", "total"):
+        local = _local_stamp(created_at, zone)
+        if local is None:
             continue
-        hour = timezone.localtime(bucket).hour if timezone.is_aware(bucket) else bucket.hour
-        buckets[hour] += _money(row["total"])
+        buckets[local.hour] += total or Decimal("0")
+    buckets = [_money(total) for total in buckets]
     active = [index for index, total in enumerate(buckets) if total]
     start_hour, end_hour = 8, 21
     if active:
@@ -229,7 +205,8 @@ def _sales_by_cashier(shop, start, end):
 def _discounts_and_refunds(shop, bounds):
     days = bounds["days"]
     weeks = max(2, round(days / 7))
-    discounts = _daily_amounts(_sales(shop, bounds["current_start"], bounds["current_end"]), "discount")
+    zone = bounds["zone"]
+    discounts = _daily_amounts(_sales(shop, bounds["current_start"], bounds["current_end"]), "discount", zone)
     refunds = _daily_amounts(
         SalesReturn.objects.filter(
             shop=shop,
@@ -237,6 +214,7 @@ def _discounts_and_refunds(shop, bounds):
             created_at__lt=bounds["current_end"],
         ),
         "refund_amount",
+        zone,
     )
     discount_buckets = [0.0] * weeks
     refund_buckets = [0.0] * weeks
@@ -293,9 +271,10 @@ def _recent_sales(shop):
 
 
 def build_overview(shop, days: int) -> dict:
-    bounds = _bounds(days)
-    current = _period_stats(shop, bounds["current_start"], bounds["current_end"])
-    previous = _period_stats(shop, bounds["prev_start"], bounds["prev_end"])
+    bounds = _bounds(shop, days)
+    zone = bounds["zone"]
+    current = period_totals(shop, bounds["current_start"], bounds["current_end"])
+    previous = period_totals(shop, bounds["prev_start"], bounds["prev_end"])
     return {
         "days": days,
         "kpis": {
@@ -310,7 +289,7 @@ def build_overview(shop, days: int) -> dict:
         },
         "sales_trend": _sales_trend(shop, bounds),
         "categories": _categories(shop, bounds["current_start"], bounds["current_end"]),
-        "sales_by_hour": _sales_by_hour(shop, bounds["current_start"], bounds["current_end"]),
+        "sales_by_hour": _sales_by_hour(shop, bounds["current_start"], bounds["current_end"], zone),
         "top_products": _top_products(shop, bounds["current_start"], bounds["current_end"]),
         "payment_methods": _payment_methods(shop, bounds["current_start"], bounds["current_end"]),
         "sales_by_cashier": _sales_by_cashier(shop, bounds["current_start"], bounds["current_end"]),

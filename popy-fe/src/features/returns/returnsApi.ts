@@ -3,6 +3,7 @@ import type { ListQueryParams } from '@/types';
 import type {
   PurchaseReturnPayload,
   ReturnRecord,
+  SalesReturnLookup,
   SalesReturnPayload,
 } from './types';
 
@@ -14,6 +15,10 @@ export const returnsApi = baseApi.injectEndpoints({
         response: ReturnRecord[] | { data: ReturnRecord[] },
       ) => (Array.isArray(response) ? response : (response.data ?? [])),
       providesTags: [{ type: 'Return', id: 'LIST' }],
+    }),
+
+    lookupSalesReturn: builder.query<SalesReturnLookup, string>({
+      query: (code) => ({ url: '/returns/sales/lookup', params: { code } }),
     }),
 
     createSalesReturn: builder.mutation<ReturnRecord, SalesReturnPayload>({
@@ -44,6 +49,7 @@ export const returnsApi = baseApi.injectEndpoints({
 
 export const {
   useGetReturnsQuery,
+  useLazyLookupSalesReturnQuery,
   useCreateSalesReturnMutation,
   useCreatePurchaseReturnMutation,
 } = returnsApi;

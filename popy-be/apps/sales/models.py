@@ -51,8 +51,17 @@ class SaleItem(models.Model):
     product = models.ForeignKey(Product, on_delete=models.PROTECT)
     quantity = models.DecimalField(max_digits=14, decimal_places=3)
     unit_price = models.DecimalField(max_digits=12, decimal_places=2)
+    cost_price = models.DecimalField(max_digits=12, decimal_places=2)
     total = models.DecimalField(max_digits=14, decimal_places=2)
 
     def save(self, *args, **kwargs):
         self.total = self.quantity * self.unit_price
+        if self.cost_price is None and self.product_id:
+            from apps.catalog.models import Product
+
+            self.cost_price = (
+                Product.objects.filter(pk=self.product_id)
+                .values_list("cost_price", flat=True)
+                .first()
+            )
         super().save(*args, **kwargs)

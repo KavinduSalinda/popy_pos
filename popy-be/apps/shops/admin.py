@@ -91,7 +91,7 @@ class ShopAdmin(admin.ModelAdmin):
     search_fields = ("name", "code")
 
     fieldsets = (
-        (None, {"fields": ("name", "code", "address", "phone", "email", "is_active", "plan")}),
+        (None, {"fields": ("name", "code", "address", "phone", "email", "is_active", "plan", "timezone")}),
         ("Links", {"fields": ("manage_users_link",)}),
     )
     readonly_fields = ("manage_users_link",)

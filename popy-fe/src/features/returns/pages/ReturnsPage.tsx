@@ -9,14 +9,17 @@ import {
   Stack,
   Tab,
   Tabs,
+  TextField,
+  Typography,
 } from '@mui/material';
 import { toast } from 'react-toastify';
 import { PageHeader } from '@/components/common';
 import { FormTextField } from '@/components/forms';
-import { getErrorMessage } from '@/utils';
+import { formatQuantity, getErrorMessage } from '@/utils';
 import {
   useCreatePurchaseReturnMutation,
   useCreateSalesReturnMutation,
+  useLazyLookupSalesReturnQuery,
 } from '../returnsApi';
 import {
   purchaseReturnSchema,
@@ -24,40 +27,128 @@ import {
   type PurchaseReturnFormValues,
   type SalesReturnFormValues,
 } from '../schema';
+import type { SalesReturnLookup } from '../types';
 
 type TabKey = 'sales' | 'purchase';
 
 const SalesReturnForm = () => {
   const [createSalesReturn, { isLoading }] = useCreateSalesReturnMutation();
-  const { control, handleSubmit, reset } = useForm<SalesReturnFormValues>({
+  const [lookupSalesReturn, { isFetching }] = useLazyLookupSalesReturnQuery();
+  const [found, setFound] = useState<SalesReturnLookup | null>(null);
+  const [foundCode, setFoundCode] = useState('');
+  const [quantity, setQuantity] = useState<number | ''>(1);
+  const { control, handleSubmit, reset, setValue, getValues, watch } = useForm<SalesReturnFormValues>({
     resolver: zodResolver(salesReturnSchema),
-    defaultValues: { saleId: '', reason: '', refundAmount: 0 },
+    defaultValues: { code: '', reason: '', refundAmount: 0 },
   });
 
+  const runLookup = async (raw: string) => {
+    const code = raw.trim();
+    if (!code) return;
+    try {
+      const result = await lookupSalesReturn(code).unwrap();
+      setFound(result);
+      setFoundCode(code);
+      setQuantity(result.match === 'product' ? result.suggestedQuantity : '');
+      setValue('refundAmount', result.suggestedRefund, { shouldValidate: true });
+    } catch (error) {
+      setFound(null);
+      setFoundCode('');
+      toast.error(getErrorMessage(error));
+    }
+  };
+
   const onSubmit = handleSubmit(async (values) => {
+    const code = values.code.trim();
+    if (!found || foundCode !== code) {
+      toast.error('Find the bill, barcode, or SKU before processing the return.');
+      return;
+    }
+    if (found.match === 'product' && !(Number(quantity) > 0)) {
+      toast.error('Enter a quantity.');
+      return;
+    }
     try {
       await createSalesReturn({
-        saleId: values.saleId,
+        code,
         reason: values.reason,
         refundAmount: values.refundAmount,
-        items: [],
+        ...(found.match === 'product'
+          ? { quantity: Number(quantity) }
+          : { items: [] }),
       }).unwrap();
       toast.success('Sales return recorded');
+      setFound(null);
+      setFoundCode('');
+      setQuantity(1);
       reset();
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
   });
 
+  const codeValue = watch('code');
+  const ready = Boolean(found && foundCode && codeValue.trim() === foundCode);
+  const productReturn = ready && found?.match === 'product';
+
   return (
     <Stack component="form" spacing={2} onSubmit={onSubmit} maxWidth={480}>
-      <FormTextField
-        name="saleId"
-        control={control}
-        label="Sale reference"
-        placeholder="e.g. SL-2026-0060"
-        helperText="Copy the reference from Sales (e.g. SL-2026-0060). Numeric ID also works."
-      />
+      <Stack direction="row" spacing={1} sx={{ alignItems: 'flex-start' }}>
+        <FormTextField
+          name="code"
+          control={control}
+          label="Bill, barcode, or SKU"
+          placeholder="SL-2026-0060 or scan a barcode"
+          helperText="A bill returns what is left on that receipt. A barcode or SKU uses the newest sale that still has that product."
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              event.preventDefault();
+              void runLookup(getValues('code'));
+            }
+          }}
+        />
+        <Button
+          type="button"
+          variant="outlined"
+          disabled={isFetching}
+          onClick={() => void runLookup(getValues('code'))}
+          sx={{ mt: 0.25, flexShrink: 0 }}
+        >
+          Find
+        </Button>
+      </Stack>
+      {ready && found ? (
+        <Box>
+          <Typography sx={{ fontWeight: 600 }}>
+            {found.productName ? `${found.productName} · ${found.saleReference}` : found.saleReference}
+          </Typography>
+          <Typography sx={{ color: 'text.secondary', fontSize: 13 }}>
+            {productReturn
+              ? `${formatQuantity(found.quantityLeft)} left on this sale`
+              : `Returning everything left (${formatQuantity(found.quantityLeft)})`}
+          </Typography>
+        </Box>
+      ) : null}
+      {productReturn && found ? (
+        <TextField
+          label="Quantity"
+          type="number"
+          size="small"
+          value={quantity}
+          onChange={(event) => {
+            const raw = event.target.value;
+            setQuantity(raw === '' ? '' : Number(raw));
+          }}
+          slotProps={{
+            htmlInput: {
+              min: 0.001,
+              max: found.quantityLeft,
+              step: 0.001,
+            },
+          }}
+          helperText={`Up to ${formatQuantity(found.quantityLeft)}`}
+        />
+      ) : null}
       <FormTextField
         name="reason"
         control={control}
@@ -70,11 +161,16 @@ const SalesReturnForm = () => {
         control={control}
         label="Refund amount"
         type="number"
+        helperText={
+          ready && found
+            ? `Capped at ${found.refundLeft} still left on the sale`
+            : undefined
+        }
       />
       <Button
         type="submit"
         variant="contained"
-        disabled={isLoading}
+        disabled={isLoading || !ready}
         sx={{ alignSelf: 'flex-start' }}
       >
         Process sales return

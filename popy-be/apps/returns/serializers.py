@@ -30,11 +30,24 @@ class PurchaseReturnSerializer(CamelCaseModelSerializer):
 
 
 class SalesReturnCreateSerializer(CamelCaseSerializer):
-    # Numeric sale id or human reference (e.g. SL-2026-0060)
-    sale_id = serializers.CharField()
+    # Bill reference, numeric sale id, barcode, or SKU.
+    sale_id = serializers.CharField(required=False, allow_blank=True)
+    code = serializers.CharField(required=False, allow_blank=True)
     reason = serializers.CharField()
     items = serializers.ListField(child=serializers.DictField(), required=False, default=list)
     refund_amount = serializers.DecimalField(max_digits=14, decimal_places=2)
+    quantity = serializers.DecimalField(
+        max_digits=14, decimal_places=3, required=False, allow_null=True
+    )
+
+    def validate(self, attrs):
+        code = (attrs.get("code") or "").strip()
+        sale_id = (attrs.get("sale_id") or "").strip()
+        attrs["code"] = code
+        attrs["sale_id"] = sale_id
+        if not code and not sale_id:
+            raise serializers.ValidationError("Enter a bill, barcode, or SKU.")
+        return attrs
 
 
 class PurchaseReturnCreateSerializer(CamelCaseSerializer):

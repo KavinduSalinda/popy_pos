@@ -11,19 +11,33 @@ interface KpiCardProps {
   loading?: boolean;
 }
 
-const deltaPresentation = (current: number, previous: number, inverse: boolean) => {
-  if (!previous) {
-    if (!current) return { text: '0.0% vs previous', favorable: true };
+export interface DeltaPresentation {
+  text: string;
+  /** Null is a flat change and uses the neutral text color. */
+  favorable: boolean | null;
+}
+
+export const deltaPresentation = (
+  current: number,
+  previous: number,
+  inverse: boolean,
+): DeltaPresentation => {
+  const currentValue = toNumber(current);
+  const previousValue = toNumber(previous);
+  if (previousValue === 0) {
+    if (currentValue === 0) return { text: '0.0% vs previous', favorable: null };
+    const up = currentValue > 0;
     return {
-      text: `${inverse ? '▼' : '▲'} New vs previous`,
-      favorable: !inverse,
+      text: `${up ? '▲' : '▼'} New vs previous`,
+      favorable: inverse ? currentValue < 0 : currentValue > 0,
     };
   }
-  const change = ((current - previous) / Math.abs(previous)) * 100;
-  const rose = change >= 0;
+  const change = ((currentValue - previousValue) / Math.abs(previousValue)) * 100;
+  if (Math.abs(change) < 0.05) return { text: '0.0% vs previous', favorable: null };
+  const rose = change > 0;
   return {
     text: `${rose ? '▲' : '▼'} ${Math.abs(change).toFixed(1)}% vs previous`,
-    favorable: inverse ? change <= 0 : change >= 0,
+    favorable: inverse ? change < 0 : change > 0,
   };
 };
 
@@ -62,7 +76,12 @@ export const KpiCard = ({
             sx={{
               fontSize: 12,
               fontWeight: 500,
-              color: delta.favorable ? 'success.main' : 'error.main',
+              color:
+                delta.favorable === null
+                  ? 'text.secondary'
+                  : delta.favorable
+                    ? 'success.main'
+                    : 'error.main',
             }}
           >
             {delta.text}

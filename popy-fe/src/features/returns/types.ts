@@ -5,12 +5,29 @@ export interface ReturnItemPayload {
   quantity: number;
 }
 
+export interface SalesReturnLookup {
+  match: 'sale' | 'product';
+  saleId: number;
+  saleReference: string;
+  productId?: number;
+  productName?: string;
+  sku?: string;
+  barcode?: string | null;
+  quantityLeft: number;
+  suggestedQuantity: number;
+  suggestedRefund: number;
+  refundLeft: number;
+}
+
 export interface SalesReturnPayload {
-  /** Numeric sale id or receipt reference (e.g. SL-2026-0060). */
-  saleId: ID | string;
+  /** Numeric sale id or receipt reference. Optional when `code` is sent. */
+  saleId?: ID | string;
+  /** Bill reference, barcode, or SKU. Resolved again when the return is saved. */
+  code?: string;
   reason: string;
-  items: ReturnItemPayload[];
+  items?: ReturnItemPayload[];
   refundAmount: number;
+  quantity?: number;
 }
 
 export interface PurchaseReturnPayload {

@@ -220,6 +220,7 @@ class Command(BaseCommand):
                     "phone": _str(row, "phone"),
                     "email": _str(row, "email"),
                     "is_active": _bool(row, "is_active", True),
+                    "timezone": "Asia/Colombo",
                 },
             )
             shops[code] = shop

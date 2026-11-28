@@ -351,25 +351,31 @@ export const HANDBOOK_SECTIONS: HandbookSection[] = [
     id: 'returns',
     title: 'Returns',
     summary:
-      'Record a full return of a sale or a purchase. The forms do not let you pick individual lines: every line on that document is returned.',
+      'Return a sale from a bill reference, a barcode, or a SKU. A purchase return still uses the purchase reference.',
     operations: [
       {
         title: 'Return a sale',
         who: 'Super Admin, Manager, and Inventory Officer. Cashiers can look up the receipt, but they cannot record the return.',
         path: 'Returns → Sales Return',
         steps: [
-          'Open Sales and copy the SL- reference.',
           'Open Returns and stay on Sales Return.',
-          'Enter the sale reference (or the numeric sale id), a reason, and the refund amount.',
-          'Choose Process sales return.',
-          'Every quantity on that sale is added back to stock. The original sale total, payment method, and loyalty points are left unchanged.',
+          'Enter a bill reference (SL- or the numeric sale id), a barcode, or a SKU, then choose Find.',
+          'A bill returns whatever quantity is still left on that receipt. A barcode or SKU returns that product from the newest sale that still has some left. The form shows the sale reference, the quantity left, and a suggested refund.',
+          'For a product, change the quantity if you are not returning 1. Enter a reason, adjust the refund if you need to, and choose Process sales return.',
+          'Only the returned quantity is added back to stock. The original sale total, payment method, and loyalty points stay unchanged.',
         ],
         parameters: [
           {
-            name: 'Sale reference',
+            name: 'Bill, barcode, or SKU',
             required: true,
             details:
-              'The SL- reference from Sales, for example SL-2026-0060. A numeric sale id also works. It must belong to this shop.',
+              'An SL- reference, such as SL-2026-0060, or the numeric sale id. A barcode or SKU must belong to this shop, including an inactive product. When the same text is both a bill and a SKU, the bill is used.',
+          },
+          {
+            name: 'Quantity',
+            required: false,
+            details:
+              'Shown for a barcode or SKU. Defaults to 1 when at least 1 remains, otherwise the remaining fraction. It cannot exceed what is left on the matched sale.',
           },
           {
             name: 'Reason',
@@ -380,12 +386,12 @@ export const HANDBOOK_SECTIONS: HandbookSection[] = [
             name: 'Refund amount',
             required: true,
             details:
-              'The amount you are handing back, 0 or more. It is stored on the return only. It is not checked against the sale total and it does not change the original receipt.',
+              'The amount you are handing back, 0 or more. It starts at the line value after the sale discount, and the server caps it at the money still left on that sale. It does not change the original receipt.',
           },
         ],
         notes: [
-          'This is always a full return of that sale.',
-          'Recording the same sale again adds the quantities back a second time. Check that the receipt was not already returned.',
+          'A barcode or SKU attaches to the newest returnable sale without asking. Type the bill reference when the item came from an older receipt.',
+          'Recording a bill that has already been fully returned does not add the quantities back again.',
         ],
       },
       {

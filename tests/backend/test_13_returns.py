@@ -1,8 +1,10 @@
 """End-to-end sales and purchase return process tests."""
 
+from datetime import timedelta
 from decimal import Decimal
 
 import pytest
+from django.utils import timezone
 
 from apps.catalog.models import Product
 from apps.core.choices import Role, StockTransactionType
@@ -178,7 +180,7 @@ class TestSalesReturnEndToEnd:
             format="json",
         )
         assert response.status_code == 404
-        assert response.data["message"] == "Sale not found"
+        assert response.data["message"] == 'No sale, barcode, or SKU found for "999999".'
 
     def test_cashier_cannot_create_or_list_returns(
         self, cashier_a, shop_a, product_a
@@ -223,10 +225,9 @@ class TestSalesReturnEndToEnd:
         product_a.refresh_from_db()
         assert product_a.stock_quantity == stock_before
 
-    def test_double_full_return_is_currently_allowed(
+    def test_second_full_return_does_not_restock_again(
         self, manager_a, cashier_a, shop_a, product_a
     ):
-        """Documents current behavior: no duplicate-return guard."""
         cashier = authed_client(cashier_a, shop_a)
         manager = authed_client(manager_a, shop_a)
         stock_before = product_a.stock_quantity
@@ -254,11 +255,10 @@ class TestSalesReturnEndToEnd:
             },
             format="json",
         )
-        # Current API allows this (stock inflated) — flag if this starts failing.
-        assert second.status_code == 201, second.data
+        assert second.status_code == 400, second.data
         product_a.refresh_from_db()
-        assert product_a.stock_quantity == stock_before + 2
-        assert SalesReturn.objects.filter(sale_id=sale["id"]).count() == 2
+        assert product_a.stock_quantity == stock_before
+        assert SalesReturn.objects.filter(sale_id=sale["id"]).count() == 1
 
     def test_cross_shop_sale_not_found(
         self, super_admin, cashier_a, shop_a, shop_b, product_a
@@ -279,6 +279,143 @@ class TestSalesReturnEndToEnd:
             format="json",
         )
         assert response.status_code == 404
+
+    def test_barcode_and_sku_attach_to_the_newer_sale(
+        self, manager_a, cashier_a, shop_a, product_a
+    ):
+        cashier = authed_client(cashier_a, shop_a)
+        manager = authed_client(manager_a, shop_a)
+        stock_before = product_a.stock_quantity
+        older = _create_sale(cashier, product_a, qty=2)
+        newer = _create_sale(cashier, product_a, qty=3)
+        Sale.objects.filter(pk=older["id"]).update(created_at=timezone.now() - timedelta(days=2))
+
+        barcode = manager.post(
+            "/api/returns/sales",
+            {
+                "code": product_a.barcode,
+                "reason": "Scanned barcode",
+                "refundAmount": "5.50",
+                "quantity": "1",
+            },
+            format="json",
+        )
+        assert barcode.status_code == 201, barcode.data
+        assert barcode.data["saleId"] == newer["id"]
+        assert barcode.data["items"][0]["productId"] == product_a.id
+
+        sku = manager.post(
+            "/api/returns/sales",
+            {
+                "code": product_a.sku,
+                "reason": "Typed SKU",
+                "refundAmount": "5.50",
+                "quantity": "1",
+            },
+            format="json",
+        )
+        assert sku.status_code == 201, sku.data
+        assert sku.data["saleId"] == newer["id"]
+        product_a.refresh_from_db()
+        assert product_a.stock_quantity == stock_before - 3
+
+    def test_barcode_skips_a_fully_returned_sale(
+        self, manager_a, cashier_a, shop_a, product_a
+    ):
+        cashier = authed_client(cashier_a, shop_a)
+        manager = authed_client(manager_a, shop_a)
+        older = _create_sale(cashier, product_a, qty=2)
+        newer = _create_sale(cashier, product_a, qty=2)
+        Sale.objects.filter(pk=older["id"]).update(created_at=timezone.now() - timedelta(days=2))
+        full = manager.post(
+            "/api/returns/sales",
+            {
+                "saleId": newer["id"],
+                "reason": "Whole newer bill",
+                "refundAmount": newer["total"],
+                "items": [],
+            },
+            format="json",
+        )
+        assert full.status_code == 201, full.data
+
+        response = manager.post(
+            "/api/returns/sales",
+            {
+                "code": product_a.barcode,
+                "reason": "Next oldest",
+                "refundAmount": "5.50",
+                "quantity": "1",
+            },
+            format="json",
+        )
+        assert response.status_code == 201, response.data
+        assert response.data["saleId"] == older["id"]
+
+    def test_unknown_code_and_nothing_left_return_404(self, manager_a, cashier_a, shop_a, product_a):
+        cashier = authed_client(cashier_a, shop_a)
+        manager = authed_client(manager_a, shop_a)
+        unknown = manager.get("/api/returns/sales/lookup", {"code": "NO-SUCH-CODE"})
+        assert unknown.status_code == 404
+
+        sale = _create_sale(cashier, product_a, qty=1)
+        done = manager.post(
+            "/api/returns/sales",
+            {
+                "saleId": sale["id"],
+                "reason": "All back",
+                "refundAmount": sale["total"],
+                "items": [],
+            },
+            format="json",
+        )
+        assert done.status_code == 201, done.data
+        lookup = manager.get("/api/returns/sales/lookup", {"code": product_a.sku})
+        assert lookup.status_code == 404
+        assert lookup.data["message"] == "No returnable sale for this item."
+
+    def test_quantity_above_remaining_is_rejected(self, manager_a, cashier_a, shop_a, product_a):
+        cashier = authed_client(cashier_a, shop_a)
+        manager = authed_client(manager_a, shop_a)
+        _create_sale(cashier, product_a, qty=1)
+        response = manager.post(
+            "/api/returns/sales",
+            {
+                "code": product_a.barcode,
+                "reason": "Too many",
+                "refundAmount": "20.00",
+                "quantity": "2",
+            },
+            format="json",
+        )
+        assert response.status_code == 400, response.data
+        assert response.data["message"] == "Quantity is higher than what is left to return."
+
+    def test_bill_reference_wins_when_the_text_is_also_a_sku(
+        self, manager_a, cashier_a, shop_a, product_a
+    ):
+        cashier = authed_client(cashier_a, shop_a)
+        manager = authed_client(manager_a, shop_a)
+        stock_before = product_a.stock_quantity
+        sale = _create_sale(cashier, product_a, qty=2)
+        product_a.sku = sale["reference"]
+        product_a.save(update_fields=["sku"])
+
+        response = manager.post(
+            "/api/returns/sales",
+            {
+                "code": sale["reference"],
+                "reason": "Bill wins",
+                "refundAmount": sale["total"],
+                "items": [],
+            },
+            format="json",
+        )
+        assert response.status_code == 201, response.data
+        assert response.data["saleId"] == sale["id"]
+        assert response.data["items"] == []
+        product_a.refresh_from_db()
+        assert product_a.stock_quantity == stock_before
 
 
 @pytest.mark.django_db

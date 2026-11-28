@@ -14,6 +14,7 @@ class ShopSerializer(CamelCaseModelSerializer):
             "email",
             "is_active",
             "plan",
+            "timezone",
             "created_at",
             "updated_at",
         ]

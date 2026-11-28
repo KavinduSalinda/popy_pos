@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const salesReturnSchema = z.object({
-  saleId: z.string().trim().min(1, 'Sale reference is required'),
+  code: z.string().trim().min(1, 'Enter a bill, barcode, or SKU'),
   reason: z.string().min(1, 'Reason is required').max(255),
   refundAmount: z.number().min(0, 'Must be 0 or more'),
 });

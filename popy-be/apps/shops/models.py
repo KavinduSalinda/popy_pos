@@ -18,6 +18,7 @@ class Shop(TimeStampedModel):
         default=ShopPlan.FREE,
         db_index=True,
     )
+    timezone = models.CharField(max_length=64, default="UTC")
 
     class Meta:
         ordering = ["name"]
