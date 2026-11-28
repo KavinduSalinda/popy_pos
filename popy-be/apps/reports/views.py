@@ -2,7 +2,6 @@ from datetime import datetime
 from decimal import Decimal
 
 from django.db.models import Sum
-from django.db.models.functions import TruncDate
 from django.utils import timezone
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -13,7 +12,7 @@ from apps.core.permissions import HasPOSPermission
 from apps.core.shop_context import ShopScopedMixin
 from apps.parties.models import Customer
 from apps.purchasing.models import Purchase
-from apps.sales.models import Sale, SaleItem
+from apps.sales.figures import local_stamp, money_float, recognize_period, shop_zone
 
 
 def parse_date_range(request):
@@ -34,18 +33,13 @@ class ReportViewSet(ShopScopedMixin, ViewSet):
 
     def sales(self, request):
         start, end = parse_date_range(request)
-        qs = Sale.objects.filter(shop=self.shop)
-        if start:
-            qs = qs.filter(created_at__gte=start)
-        qs = qs.filter(created_at__lte=end)
-
-        rows_qs = qs.annotate(date=TruncDate("created_at")).values("date").annotate(total=Sum("total")).order_by("date")
+        activity = recognize_period(self.shop, start, end, inclusive_end=True)
+        zone = shop_zone(self.shop)
+        totals = _signed_by_day(activity, zone, "money")
         rows = [
-            {"date": entry["date"].isoformat() if entry["date"] else "", "total": float(entry["total"] or 0)}
-            for entry in rows_qs
+            {"date": day.isoformat(), "total": money_float(total)}
+            for day, total in sorted(totals.items())
         ]
-        grand_total = float(qs.aggregate(t=Sum("total"))["t"] or 0)
-
         return Response(
             {
                 "columns": [
@@ -53,7 +47,7 @@ class ReportViewSet(ShopScopedMixin, ViewSet):
                     {"field": "total", "header": "Total", "type": "currency"},
                 ],
                 "rows": rows,
-                "summary": {"grandTotal": grand_total},
+                "summary": {"grandTotal": money_float(sum(totals.values(), Decimal("0")))},
             }
         )
 
@@ -113,13 +107,23 @@ class ReportViewSet(ShopScopedMixin, ViewSet):
         )
 
     def customers(self, request):
-        customers = Customer.objects.filter(shop=self.shop).annotate(sales_total=Sum("sales__total"))
+        activity = recognize_period(self.shop, None, None)
+        totals = {}
+        for sale in activity["sales"]:
+            if sale["customer_id"] is None:
+                continue
+            totals[sale["customer_id"]] = totals.get(sale["customer_id"], Decimal("0")) + sale["money"]
+        for ret in activity["returns"]:
+            if ret["customer_id"] is None:
+                continue
+            totals[ret["customer_id"]] = totals.get(ret["customer_id"], Decimal("0")) - ret["money"]
+        customers = Customer.objects.filter(shop=self.shop)
         rows = [
             {
                 "name": c.name,
                 "phone": c.phone,
                 "loyaltyPoints": c.loyalty_points,
-                "salesTotal": float(c.sales_total or 0),
+                "salesTotal": money_float(totals.get(c.id, Decimal("0"))),
             }
             for c in customers
         ]
@@ -138,20 +142,13 @@ class ReportViewSet(ShopScopedMixin, ViewSet):
 
     def profit(self, request):
         start, end = parse_date_range(request)
-        items = SaleItem.objects.select_related("product").filter(sale__shop=self.shop)
-        if start:
-            items = items.filter(sale__created_at__gte=start)
-        items = items.filter(sale__created_at__lte=end)
-
-        profit_by_date = {}
-        for item in items:
-            date_key = item.sale.created_at.date().isoformat()
-            profit = (item.unit_price - item.product.cost_price) * item.quantity
-            profit_by_date[date_key] = profit_by_date.get(date_key, Decimal("0")) + profit
-
-        rows = [{"date": k, "profit": float(v)} for k, v in sorted(profit_by_date.items())]
-        grand_total = sum(r["profit"] for r in rows)
-
+        activity = recognize_period(self.shop, start, end, inclusive_end=True)
+        zone = shop_zone(self.shop)
+        totals = _signed_by_day(activity, zone, "profit")
+        rows = [
+            {"date": day.isoformat(), "profit": money_float(total)}
+            for day, total in sorted(totals.items())
+        ]
         return Response(
             {
                 "columns": [
@@ -159,6 +156,21 @@ class ReportViewSet(ShopScopedMixin, ViewSet):
                     {"field": "profit", "header": "Profit", "type": "currency"},
                 ],
                 "rows": rows,
-                "summary": {"grandTotal": grand_total},
+                "summary": {"grandTotal": money_float(sum(totals.values(), Decimal("0")))},
             }
         )
+
+
+def _signed_by_day(activity, zone, field):
+    totals = {}
+    for sale in activity["sales"]:
+        local = local_stamp(sale["at"], zone)
+        if local is None:
+            continue
+        totals[local.date()] = totals.get(local.date(), Decimal("0")) + sale[field]
+    for ret in activity["returns"]:
+        local = local_stamp(ret["at"], zone)
+        if local is None:
+            continue
+        totals[local.date()] = totals.get(local.date(), Decimal("0")) - ret[field]
+    return totals

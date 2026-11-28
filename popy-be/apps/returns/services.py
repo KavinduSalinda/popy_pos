@@ -8,7 +8,8 @@ from apps.catalog.models import Product
 from apps.core.choices import StockTransactionType
 from apps.core.services import adjust_stock
 from apps.core.utils import generate_reference
-from apps.returns.models import SalesReturn
+from apps.purchasing.models import Purchase
+from apps.returns.models import PurchaseReturn, SalesReturn
 from apps.sales.figures import (
     ReturnQuantityError,
     apply_return,
@@ -227,3 +228,72 @@ def create_sales_return(
             items=item_list,
         )
     raise ReturnLookupError("No returnable sale for this item.", 404)
+
+
+def _purchase_lines(purchase: Purchase, items):
+    lines = list(purchase.items.select_related("product"))
+    by_product = {}
+    for line in lines:
+        by_product.setdefault(line.product_id, line)
+    if not items:
+        chosen = [(line.product_id, Decimal(line.quantity), line.cost_price) for line in lines]
+    else:
+        chosen = []
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            raw_id = item.get("productId", item.get("product_id"))
+            try:
+                product_id = int(raw_id)
+            except (TypeError, ValueError):
+                raise ReturnLookupError("That product is not on this purchase.", 400) from None
+            line = by_product.get(product_id)
+            if line is None:
+                raise ReturnLookupError("That product is not on this purchase.", 400)
+            quantity = Decimal(str(item.get("quantity") or 0))
+            if quantity <= 0:
+                raise ReturnLookupError("Enter a quantity.", 400)
+            chosen.append((product_id, quantity, line.cost_price))
+    if not chosen:
+        raise ReturnLookupError("Nothing to return.", 400)
+    return chosen
+
+
+@transaction.atomic
+def create_purchase_return(shop, *, purchase_id: str, reason: str, items=None) -> PurchaseReturn:
+    value = str(purchase_id).strip()
+    queryset = Purchase.objects.prefetch_related("items__product").filter(shop=shop)
+    if value.isdigit():
+        purchase = queryset.filter(pk=int(value)).first()
+    else:
+        purchase = queryset.filter(reference__iexact=value).first()
+    if purchase is None:
+        raise ReturnLookupError("Purchase not found", 404)
+
+    chosen = _purchase_lines(purchase, items or [])
+    reference = generate_reference("PR", PurchaseReturn, shop=shop)
+    amount = Decimal("0")
+    stored = []
+    try:
+        for product_id, quantity, cost in chosen:
+            product = Product.objects.select_for_update().get(pk=product_id, shop=shop)
+            adjust_stock(
+                product,
+                -quantity,
+                StockTransactionType.RETURN,
+                note=f"Purchase return {reference}",
+                reference_type="PurchaseReturn",
+            )
+            amount += quantity * Decimal(cost)
+            stored.append({"productId": product.id, "quantity": format(quantity, "f")})
+    except ValueError as exc:
+        raise ReturnLookupError("Not enough stock to return these goods.", 400) from exc
+
+    return PurchaseReturn.objects.create(
+        shop=shop,
+        reference=reference,
+        purchase=purchase,
+        reason=reason,
+        amount=quantize_money(amount),
+        items=stored,
+    )

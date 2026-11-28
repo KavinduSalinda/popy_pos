@@ -8,6 +8,7 @@ from django.test import override_settings
 
 from apps.catalog.models import Category, Product
 from apps.insights.models import ShopInsightSettings
+from apps.returns.models import SalesReturn
 from apps.sales.models import Sale, SaleItem
 
 from .conftest import authed_client
@@ -133,6 +134,24 @@ class TestInsightRequirements:
         assert water["buy90"] == 0
         assert response.data["summary"]["buy30"] == 20
         assert response.data["summary"]["buy90"] == 80
+
+    def test_returned_units_come_off_the_buy_estimate(self, manager_a, shop_a, product_a):
+        product_a.stock_quantity = 10
+        product_a.save(update_fields=["stock_quantity"])
+        sale = _sale(shop_a, manager_a, product_a, 30, "S-RET")
+        SalesReturn.objects.create(
+            shop=shop_a,
+            reference="SR-RET",
+            sale=sale,
+            reason="Five back",
+            refund_amount=Decimal("0"),
+            items=[{"productId": product_a.id, "quantity": "5"}],
+        )
+
+        response = authed_client(manager_a, shop_a).get("/api/insights/requirements")
+
+        tea = next(row for row in response.data["rows"] if row["product"] == "Green Tea")
+        assert tea["soldLast30"] == 25
 
     def test_report_hides_another_shops_product(
         self, manager_a, shop_a, shop_b, product_a

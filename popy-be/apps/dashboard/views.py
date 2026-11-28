@@ -1,8 +1,7 @@
 from datetime import timedelta
 from decimal import Decimal
 
-from django.db.models import F, Sum
-from django.db.models.functions import TruncDay, TruncMonth
+from django.db.models import F
 from django.utils import timezone
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -12,9 +11,9 @@ from apps.catalog.models import Product
 from apps.core.permissions import HasPOSPermission
 from apps.core.shop_context import ShopScopedMixin
 from apps.core.utils import dict_to_camel_case
-from apps.parties.models import Customer, Supplier
 from apps.dashboard.services import build_overview
-from apps.sales.models import Sale, SaleItem
+from apps.parties.models import Customer, Supplier
+from apps.sales.figures import local_stamp, money_float, recognize_period, shop_zone, start_of_day, totals_from_activity
 
 
 class DashboardViewSet(ShopScopedMixin, ViewSet):
@@ -23,29 +22,29 @@ class DashboardViewSet(ShopScopedMixin, ViewSet):
 
     def _summary_data(self):
         shop = self.shop
-        now = timezone.now()
-        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-
-        sales_qs = Sale.objects.filter(shop=shop)
-        today_sales = sales_qs.filter(created_at__gte=today_start).aggregate(total=Sum("total"))["total"] or Decimal("0")
-        monthly_sales = sales_qs.filter(created_at__gte=month_start).aggregate(total=Sum("total"))["total"] or Decimal("0")
-        total_revenue = sales_qs.aggregate(total=Sum("total"))["total"] or Decimal("0")
-
-        sale_items = SaleItem.objects.select_related("product").filter(sale__shop=shop)
-        gross_profit = Decimal("0")
-        for item in sale_items:
-            gross_profit += (item.unit_price - item.product.cost_price) * item.quantity
+        zone = shop_zone(shop)
+        today = timezone.now().astimezone(zone).date()
+        today_start = start_of_day(today, zone)
+        tomorrow = start_of_day(today + timedelta(days=1), zone)
+        month_start = start_of_day(today.replace(day=1), zone)
+        if today.month == 12:
+            next_month = today.replace(year=today.year + 1, month=1, day=1)
+        else:
+            next_month = today.replace(month=today.month + 1, day=1)
+        month_end = start_of_day(next_month, zone)
+        today_totals = totals_from_activity(recognize_period(shop, today_start, tomorrow))
+        month_totals = totals_from_activity(recognize_period(shop, month_start, month_end))
+        all_totals = totals_from_activity(recognize_period(shop, None, None))
 
         products = Product.objects.filter(status=True, shop=shop)
         low_stock_count = products.filter(stock_quantity__gt=0, stock_quantity__lte=F("reorder_level")).count()
         out_of_stock_count = products.filter(stock_quantity__lte=0).count()
 
         return {
-            "today_sales": float(today_sales),
-            "monthly_sales": float(monthly_sales),
-            "total_revenue": float(total_revenue),
-            "gross_profit": float(gross_profit),
+            "today_sales": today_totals["revenue"],
+            "monthly_sales": month_totals["revenue"],
+            "total_revenue": all_totals["revenue"],
+            "gross_profit": all_totals["gross_profit"],
             "low_stock_count": low_stock_count,
             "out_of_stock_count": out_of_stock_count,
             "total_customers": Customer.objects.filter(shop=shop).count(),
@@ -60,56 +59,40 @@ class DashboardViewSet(ShopScopedMixin, ViewSet):
 
     def sales_trend(self, request):
         shop = self.shop
-        now = timezone.now()
-        week_start = now - timedelta(days=6)
-
-        daily_qs = (
-            Sale.objects.filter(shop=shop, created_at__date__gte=week_start.date())
-            .annotate(day=TruncDay("created_at"))
-            .values("day")
-            .annotate(total=Sum("total"))
-            .order_by("day")
-        )
+        zone = shop_zone(shop)
+        today = timezone.now().astimezone(zone).date()
+        week_start = start_of_day(today - timedelta(days=6), zone)
+        tomorrow = start_of_day(today + timedelta(days=1), zone)
+        year_start = start_of_day(today.replace(month=1, day=1), zone)
+        week = recognize_period(shop, week_start, tomorrow)
+        year = recognize_period(shop, year_start, tomorrow)
+        daily_totals = _money_by_day(week, zone)
+        monthly_totals = _money_by_month(year, zone)
         daily = [
-            {
-                "label": entry["day"].strftime("%a") if entry["day"] else "",
-                "total": float(entry["total"] or 0),
-            }
-            for entry in daily_qs
+            {"label": day.strftime("%a"), "total": money_float(total)}
+            for day, total in sorted(daily_totals.items())
         ]
-
-        monthly_qs = (
-            Sale.objects.filter(shop=shop, created_at__year=now.year)
-            .annotate(month=TruncMonth("created_at"))
-            .values("month")
-            .annotate(total=Sum("total"))
-            .order_by("month")
-        )
         monthly = [
-            {
-                "label": entry["month"].strftime("%b") if entry["month"] else "",
-                "total": float(entry["total"] or 0),
-            }
-            for entry in monthly_qs
+            {"label": month.strftime("%b"), "total": money_float(total)}
+            for month, total in sorted(monthly_totals.items())
         ]
-
         return Response({"daily": daily, "monthly": monthly})
 
     def top_products(self, request):
-        qs = (
-            SaleItem.objects.filter(sale__shop=self.shop)
-            .values("product_id", "product__name")
-            .annotate(quantity_sold=Sum("quantity"), revenue=Sum("total"))
-            .order_by("-quantity_sold")[:10]
-        )
+        activity = recognize_period(self.shop, None, None)
+        ranked = sorted(
+            _product_totals(activity).values(),
+            key=lambda row: row["units"],
+            reverse=True,
+        )[:10]
         data = [
             {
                 "product_id": row["product_id"],
-                "name": row["product__name"],
-                "quantity_sold": row["quantity_sold"],
-                "revenue": float(row["revenue"] or 0),
+                "name": row["name"],
+                "quantity_sold": float(row["units"]),
+                "revenue": money_float(row["revenue"]),
             }
-            for row in qs
+            for row in ranked
         ]
         return Response([dict_to_camel_case(item) for item in data])
 
@@ -123,14 +106,70 @@ class DashboardViewSet(ShopScopedMixin, ViewSet):
         return Response(dict_to_camel_case(build_overview(self.shop, days)))
 
     def sales_by_category(self, request):
-        qs = (
-            SaleItem.objects.filter(sale__shop=self.shop)
-            .values("product__category__name")
-            .annotate(total=Sum("total"))
-            .order_by("-total")
-        )
+        totals = _category_totals(recognize_period(self.shop, None, None))
         data = [
-            {"category": row["product__category__name"] or "Uncategorized", "total": float(row["total"] or 0)}
-            for row in qs
+            {"category": name, "total": money_float(total)}
+            for name, total in sorted(totals.items(), key=lambda row: row[1], reverse=True)
+            if total != 0
         ]
         return Response(data)
+
+
+def _add_line_totals(bucket, line, sign):
+    row = bucket.setdefault(
+        line["product_id"],
+        {"product_id": line["product_id"], "name": line["name"], "units": Decimal("0"), "revenue": Decimal("0")},
+    )
+    row["units"] += sign * line["units"]
+    money = line["revenue"] if sign > 0 else line["money"]
+    row["revenue"] += sign * money
+
+
+def _product_totals(activity):
+    bucket = {}
+    for sale in activity["sales"]:
+        for line in sale["lines"]:
+            _add_line_totals(bucket, line, Decimal("1"))
+    for ret in activity["returns"]:
+        for line in ret["lines"]:
+            _add_line_totals(bucket, line, Decimal("-1"))
+    return bucket
+
+
+def _category_totals(activity):
+    totals = {}
+    for sale in activity["sales"]:
+        for line in sale["lines"]:
+            totals[line["category"]] = totals.get(line["category"], Decimal("0")) + line["revenue"]
+    for ret in activity["returns"]:
+        for line in ret["lines"]:
+            totals[line["category"]] = totals.get(line["category"], Decimal("0")) - line["money"]
+    return totals
+
+
+def _money_by_day(activity, zone):
+    totals = {}
+    for sale in activity["sales"]:
+        local = local_stamp(sale["at"], zone)
+        if local is not None:
+            totals[local.date()] = totals.get(local.date(), Decimal("0")) + sale["money"]
+    for ret in activity["returns"]:
+        local = local_stamp(ret["at"], zone)
+        if local is not None:
+            totals[local.date()] = totals.get(local.date(), Decimal("0")) - ret["money"]
+    return totals
+
+
+def _money_by_month(activity, zone):
+    totals = {}
+    for sale in activity["sales"]:
+        local = local_stamp(sale["at"], zone)
+        if local is not None:
+            key = local.date().replace(day=1)
+            totals[key] = totals.get(key, Decimal("0")) + sale["money"]
+    for ret in activity["returns"]:
+        local = local_stamp(ret["at"], zone)
+        if local is not None:
+            key = local.date().replace(day=1)
+            totals[key] = totals.get(key, Decimal("0")) - ret["money"]
+    return totals

@@ -424,9 +424,9 @@ export const HANDBOOK_SECTIONS: HandbookSection[] = [
         path: 'Returns → Purchase Return, or open a received purchase → Return',
         steps: [
           'Return goods only after the purchase has been received.',
-          'From Returns, open Purchase Return and enter the PO- reference, a reason, and the return amount. Or open the received purchase and choose Return. That dialog starts the amount at the purchase total.',
+          'From Returns, open Purchase Return and enter the PO- reference and a reason. Or open the received purchase and choose Return.',
           'Choose Process purchase return.',
-          'The full order quantity is taken back out of stock.',
+          'The quantity removed leaves stock. The saved amount is that quantity times each purchase line’s cost.',
         ],
         parameters: [
           {
@@ -444,11 +444,11 @@ export const HANDBOOK_SECTIONS: HandbookSection[] = [
             name: 'Return amount',
             required: true,
             details:
-              'The amount to record, 0 or more. It is stored as you enter it. It is not calculated from the lines.',
+              'The box can still be filled in, but the saved amount is the cost of the quantity removed. A typed amount is not stored on its own.',
           },
         ],
         notes: [
-          'If one line does not have enough stock to remove, that line is skipped and the return is still saved. Check Inventory afterward if the quantities do not look right.',
+          'If any line does not have enough stock to leave, the whole return is rejected and nothing is saved.',
         ],
       },
     ],

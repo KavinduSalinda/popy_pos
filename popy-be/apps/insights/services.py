@@ -3,12 +3,11 @@
 from datetime import timedelta
 from decimal import Decimal, ROUND_CEILING
 
-from django.db.models import Sum
 from django.utils import timezone
 
 from apps.catalog.models import Product
 from apps.dashboard.services import build_overview
-from apps.sales.models import SaleItem
+from apps.sales.figures import recognize_period
 
 LOOKBACK_DAYS = 30
 HORIZONS = (7, 30, 90)
@@ -29,17 +28,18 @@ def _number(value: Decimal):
 def build_requirements(shop) -> dict:
     """Estimate units to buy from the last 30 days of sales for this shop only."""
     start = timezone.now() - timedelta(days=LOOKBACK_DAYS)
-    sold_rows = (
-        SaleItem.objects.filter(
-            sale__shop=shop,
-            sale__created_at__gte=start,
-            product__shop=shop,
-            product__status=True,
-        )
-        .values("product_id")
-        .annotate(units=Sum("quantity"))
-    )
-    sold_by_product = {row["product_id"]: row["units"] or Decimal("0") for row in sold_rows}
+    activity = recognize_period(shop, start, None)
+    sold_by_product = {}
+    for sale in activity["sales"]:
+        for line in sale["lines"]:
+            sold_by_product[line["product_id"]] = (
+                sold_by_product.get(line["product_id"], Decimal("0")) + line["units"]
+            )
+    for ret in activity["returns"]:
+        for line in ret["lines"]:
+            sold_by_product[line["product_id"]] = (
+                sold_by_product.get(line["product_id"], Decimal("0")) - line["units"]
+            )
 
     rows = []
     for product in Product.objects.filter(shop=shop, status=True).order_by("name"):

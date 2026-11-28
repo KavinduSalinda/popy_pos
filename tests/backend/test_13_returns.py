@@ -523,3 +523,92 @@ class TestPurchaseReturnEndToEnd:
 
         product_a.refresh_from_db()
         assert product_a.stock_quantity == stock_before + 7
+
+    def test_purchase_return_stores_the_cost_of_the_quantity_removed(
+        self, manager_a, shop_a, product_a, supplier_a
+    ):
+        manager = authed_client(manager_a, shop_a)
+        create = manager.post(
+            "/api/purchases",
+            {
+                "supplierId": supplier_a.id,
+                "status": "RECEIVED",
+                "items": [
+                    {
+                        "productId": product_a.id,
+                        "quantity": 5,
+                        "costPrice": "3.00",
+                    }
+                ],
+            },
+            format="json",
+        )
+        assert create.status_code == 201, create.data
+
+        response = manager.post(
+            "/api/returns/purchase",
+            {
+                "purchaseId": create.data["id"],
+                "reason": "Typed amount is ignored",
+                "amount": "1.00",
+                "items": [],
+            },
+            format="json",
+        )
+        assert response.status_code == 201, response.data
+        assert response.data["amount"] == "15.00"
+        stored = PurchaseReturn.objects.get(pk=response.data["id"])
+        assert stored.amount == Decimal("15.00")
+
+    def test_short_stock_rejects_the_whole_purchase_return(
+        self, manager_a, shop_a, product_a, category_a, supplier_a
+    ):
+        manager = authed_client(manager_a, shop_a)
+        other = Product.objects.create(
+            shop=shop_a,
+            category=category_a,
+            name="Short Stock",
+            sku="SHORT-STOCK",
+            unit="pcs",
+            cost_price=Decimal("2.00"),
+            selling_price=Decimal("4.00"),
+            reorder_level=0,
+            stock_quantity=0,
+            status=True,
+        )
+        create = manager.post(
+            "/api/purchases",
+            {
+                "supplierId": supplier_a.id,
+                "status": "RECEIVED",
+                "items": [
+                    {"productId": product_a.id, "quantity": 2, "costPrice": "3.00"},
+                    {"productId": other.id, "quantity": 2, "costPrice": "2.00"},
+                ],
+            },
+            format="json",
+        )
+        assert create.status_code == 201, create.data
+        product_a.refresh_from_db()
+        other.refresh_from_db()
+        other.stock_quantity = 0
+        other.save(update_fields=["stock_quantity"])
+        stock_a = product_a.stock_quantity
+
+        response = manager.post(
+            "/api/returns/purchase",
+            {
+                "purchaseId": create.data["id"],
+                "reason": "Not enough of the second line",
+                "amount": "10.00",
+                "items": [],
+            },
+            format="json",
+        )
+        assert response.status_code == 400, response.data
+        assert response.data["message"] == "Not enough stock to return these goods."
+        assert PurchaseReturn.objects.filter(purchase_id=create.data["id"]).count() == 0
+        product_a.refresh_from_db()
+        other.refresh_from_db()
+        assert product_a.stock_quantity == stock_a
+        assert other.stock_quantity == 0

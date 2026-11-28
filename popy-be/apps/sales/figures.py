@@ -1,6 +1,10 @@
 """Sale line profit and return application shared by the dashboard and returns."""
 
+from datetime import datetime, time, timezone as datetime_timezone
 from decimal import Decimal, ROUND_HALF_UP
+from zoneinfo import ZoneInfo
+
+from django.utils import timezone
 
 CENT = Decimal("0.01")
 TENTH = Decimal("0.1")
@@ -36,6 +40,26 @@ def tenth_float(value) -> float:
     return float(quantize_tenth(value))
 
 
+def shop_zone(shop):
+    name = (getattr(shop, "timezone", None) or "UTC").strip() or "UTC"
+    try:
+        return ZoneInfo(name)
+    except Exception:
+        return ZoneInfo("UTC")
+
+
+def local_stamp(value, zone):
+    if value is None:
+        return None
+    if timezone.is_aware(value):
+        return value.astimezone(zone)
+    return timezone.make_aware(value, datetime_timezone.utc).astimezone(zone)
+
+
+def start_of_day(day, zone):
+    return timezone.make_aware(datetime.combine(day, time.min), zone)
+
+
 class SaleState:
     def __init__(self, sale, lines, collected, profit, units):
         self.sale = sale
@@ -50,11 +74,12 @@ class SaleState:
 
 
 class AppliedReturn:
-    def __init__(self, money, profit, units, taken):
+    def __init__(self, money, profit, units, taken, lines):
         self.money = money
         self.profit = profit
         self.units = units
         self.taken = taken
+        self.lines = lines
 
 
 def build_sale_state(sale) -> SaleState:
@@ -76,20 +101,49 @@ def build_sale_state(sale) -> SaleState:
         else:
             share = Decimal("0")
         cost = item.cost_price if item.cost_price is not None else item.product.cost_price
+        product = item.product
+        category = "Uncategorized"
+        if getattr(product, "category_id", None):
+            category = product.category.name or "Uncategorized"
         net = gross - share
         lines.append(
             {
                 "product_id": item.product_id,
+                "name": product.name,
+                "category": category,
                 "quantity": item.quantity,
                 "remaining": item.quantity,
                 "net": net,
                 "profit": net - (_dec(cost) * item.quantity),
+                "revenue": net,
             }
         )
     profit = sum((line["profit"] for line in lines), Decimal("0"))
     units = sum((line["quantity"] for line in lines), Decimal("0"))
     collected = max(_dec(sale.total), Decimal("0"))
+    _spread_revenue(lines, collected)
     return SaleState(sale, lines, collected, profit, units)
+
+
+def _spread_revenue(lines, collected: Decimal) -> None:
+    """Make line revenue add up to the collected sale total, tax included."""
+    if not lines:
+        return
+    net_sum = sum((line["net"] for line in lines), Decimal("0"))
+    extra = collected - net_sum
+    positive = [(index, line["net"]) for index, line in enumerate(lines) if line["net"] > 0]
+    if extra == 0 or not positive:
+        if extra != 0:
+            lines[-1]["revenue"] = lines[-1]["net"] + extra
+        return
+    base = sum((net for _, net in positive), Decimal("0"))
+    allocated = Decimal("0")
+    last_index = positive[-1][0]
+    for index, net in positive[:-1]:
+        share = (extra * net / base).quantize(CENT, rounding=ROUND_HALF_UP)
+        lines[index]["revenue"] = lines[index]["net"] + share
+        allocated += share
+    lines[last_index]["revenue"] = lines[last_index]["net"] + (extra - allocated)
 
 
 def product_remaining(state: SaleState, product_id: int) -> Decimal:
@@ -124,15 +178,11 @@ def item_qty_map(items) -> dict[int, Decimal]:
     return totals
 
 
-def _clamp(state: SaleState, profit_reversed: Decimal, units_reversed: Decimal):
-    if units_reversed < 0:
-        units_reversed = Decimal("0")
-    units_reversed = min(units_reversed, state.units_left)
-    if state.profit_left >= 0:
-        profit_reversed = min(max(profit_reversed, Decimal("0")), state.profit_left)
-    else:
-        profit_reversed = max(min(profit_reversed, Decimal("0")), state.profit_left)
-    return profit_reversed, units_reversed
+def _portion(line, take: Decimal) -> tuple[Decimal, Decimal]:
+    if take <= 0 or line["quantity"] <= 0:
+        return Decimal("0"), Decimal("0")
+    ratio = take / line["quantity"]
+    return line["profit"] * ratio, line["revenue"] * ratio
 
 
 def suggested_quantity(remaining: Decimal) -> Decimal:
@@ -164,24 +214,34 @@ def apply_return(state: SaleState, *, items, refund_amount, strict: bool = False
     units_reversed = Decimal("0")
     profit_reversed = Decimal("0")
     taken_map: dict[int, Decimal] = {}
+    taken_lines: list[dict] = []
 
-    def add_taken(product_id: int, qty: Decimal):
-        if qty > 0:
-            taken_map[product_id] = taken_map.get(product_id, Decimal("0")) + qty
+    def take(line, qty: Decimal):
+        nonlocal units_reversed, profit_reversed
+        take_qty = min(qty, line["remaining"])
+        if take_qty <= 0:
+            return
+        profit_part, weight = _portion(line, take_qty)
+        profit_reversed += profit_part
+        units_reversed += take_qty
+        line["remaining"] -= take_qty
+        taken_map[line["product_id"]] = taken_map.get(line["product_id"], Decimal("0")) + take_qty
+        taken_lines.append(
+            {
+                "product_id": line["product_id"],
+                "name": line["name"],
+                "category": line["category"],
+                "quantity": take_qty,
+                "profit": profit_part,
+                "weight": weight,
+            }
+        )
 
     if not items:
-        if state.collected > 0:
-            fraction = applied / state.collected
-            units_reversed = state.units * fraction
-            profit_reversed = state.profit * fraction
-        elif not state.zero_collected_done:
-            units_reversed = sum((line["remaining"] for line in state.lines), Decimal("0"))
-            profit_reversed = state.profit_left
-            state.zero_collected_done = True
         for line in state.lines:
-            if line["remaining"] > 0:
-                add_taken(line["product_id"], line["remaining"])
-            line["remaining"] = Decimal("0")
+            take(line, line["remaining"])
+        if state.collected <= 0:
+            state.zero_collected_done = True
     else:
         requested = item_qty_map(items)
         if strict:
@@ -195,21 +255,14 @@ def apply_return(state: SaleState, *, items, refund_amount, strict: bool = False
             for line in state.lines:
                 if line["product_id"] != product_id or left <= 0:
                     continue
-                take = min(left, line["remaining"])
-                if take <= 0:
-                    continue
-                if line["quantity"] > 0:
-                    profit_reversed += line["profit"] * (take / line["quantity"])
-                units_reversed += take
-                line["remaining"] -= take
-                left -= take
-                add_taken(product_id, take)
+                before = line["remaining"]
+                take(line, left)
+                left -= before - line["remaining"]
 
-    profit_reversed, units_reversed = _clamp(state, profit_reversed, units_reversed)
     state.profit_left -= profit_reversed
     state.units_left -= units_reversed
     taken = [{"product_id": product_id, "quantity": qty} for product_id, qty in taken_map.items()]
-    return AppliedReturn(applied, profit_reversed, units_reversed, taken)
+    return AppliedReturn(applied, profit_reversed, units_reversed, taken, taken_lines)
 
 
 def replay_returns(state: SaleState, returns) -> None:
@@ -224,26 +277,125 @@ def state_after_returns(sale) -> SaleState:
     return state
 
 
-def period_totals(shop, start, end) -> dict:
+def _split_money(amount: Decimal, parts: list[dict]) -> None:
+    if not parts:
+        return
+    if amount == 0:
+        for part in parts:
+            part["money"] = Decimal("0")
+        return
+    weight = sum((part["weight"] for part in parts), Decimal("0"))
+    allocated = Decimal("0")
+    if weight <= 0:
+        share = (amount / len(parts)).quantize(CENT, rounding=ROUND_HALF_UP)
+        for part in parts[:-1]:
+            part["money"] = share
+            allocated += share
+    else:
+        for part in parts[:-1]:
+            share = (amount * part["weight"] / weight).quantize(CENT, rounding=ROUND_HALF_UP)
+            part["money"] = share
+            allocated += share
+    parts[-1]["money"] = amount - allocated
+
+
+def _counts_as_transaction(state: SaleState) -> bool:
+    if state.collected > 0:
+        return state.remaining_collected > 0
+    return state.units_left > 0
+
+
+def _sale_event(sale, state: SaleState) -> dict:
+    return {
+        "at": sale.created_at,
+        "money": state.collected,
+        "profit": state.profit,
+        "units": state.units,
+        "discount": _dec(sale.discount),
+        "payment_method": sale.payment_method,
+        "cashier": sale.cashier.name if sale.cashier_id else "Unknown",
+        "customer_id": sale.customer_id,
+        "lines": [
+            {
+                "product_id": line["product_id"],
+                "name": line["name"],
+                "category": line["category"],
+                "revenue": line["revenue"],
+                "profit": line["profit"],
+                "units": line["quantity"],
+            }
+            for line in state.lines
+        ],
+        "counts": False,
+    }
+
+
+def _return_event(ret, sale, applied: AppliedReturn) -> dict:
+    lines = [dict(line) for line in applied.lines]
+    _split_money(applied.money, lines)
+    for line in lines:
+        line["units"] = line["quantity"]
+    return {
+        "at": ret.created_at,
+        "money": applied.money,
+        "profit": applied.profit,
+        "units": applied.units,
+        "payment_method": sale.payment_method,
+        "cashier": sale.cashier.name if sale.cashier_id else "Unknown",
+        "customer_id": sale.customer_id,
+        "lines": lines,
+    }
+
+
+def _window_filter(queryset, start, end, inclusive_end: bool):
+    if start is not None:
+        queryset = queryset.filter(created_at__gte=start)
+    if end is not None:
+        lookup = "created_at__lte" if inclusive_end else "created_at__lt"
+        queryset = queryset.filter(**{lookup: end})
+    return queryset
+
+
+def recognize_period(shop, start, end, *, inclusive_end: bool = False) -> dict:
+    """Sales and returns recognized between start and end.
+
+    A sale adds its collected total. A return subtracts cash, profit, and units
+    on the return's timestamp. Line revenue includes tax and already excludes
+    the sale discount. Profit uses the cost saved on the sale line.
+    """
     from apps.returns.models import SalesReturn
     from apps.sales.models import Sale
 
+    prefetched = (
+        "items__product__category",
+    )
     sales = list(
-        Sale.objects.filter(shop=shop, created_at__gte=start, created_at__lt=end).prefetch_related(
-            "items__product"
-        )
+        _window_filter(Sale.objects.filter(shop=shop), start, end, inclusive_end)
+        .select_related("cashier", "customer")
+        .prefetch_related(*prefetched)
     )
     window_returns = list(
-        SalesReturn.objects.filter(shop=shop, created_at__gte=start, created_at__lt=end)
-        .select_related("sale")
+        _window_filter(SalesReturn.objects.filter(shop=shop), start, end, inclusive_end)
+        .select_related("sale__cashier", "sale__customer")
         .order_by("created_at", "id")
     )
     extra_ids = {ret.sale_id for ret in window_returns} - {sale.id for sale in sales}
     extras = []
     if extra_ids:
-        extras = list(Sale.objects.filter(pk__in=extra_ids).prefetch_related("items__product"))
-    states = {sale.id: build_sale_state(sale) for sale in [*sales, *extras]}
-    if states:
+        extras = list(
+            Sale.objects.filter(pk__in=extra_ids)
+            .select_related("cashier", "customer")
+            .prefetch_related(*prefetched)
+        )
+    states = {}
+    sale_events = []
+    in_window = {sale.id for sale in sales}
+    for sale in [*sales, *extras]:
+        state = build_sale_state(sale)
+        states[sale.id] = state
+        if sale.id in in_window:
+            sale_events.append(_sale_event(sale, state))
+    if start is not None and states:
         prior = SalesReturn.objects.filter(sale_id__in=states.keys(), created_at__lt=start).order_by(
             "created_at", "id"
         )
@@ -251,30 +403,41 @@ def period_totals(shop, start, end) -> dict:
             state = states.get(ret.sale_id)
             if state is not None:
                 apply_return(state, items=ret.items, refund_amount=ret.refund_amount)
-    collected = Decimal("0")
-    profit = Decimal("0")
-    units = Decimal("0")
-    for sale in sales:
-        state = states[sale.id]
-        collected += state.collected
-        profit += state.profit
-        units += state.units
-    refunds = Decimal("0")
+    return_events = []
     for ret in window_returns:
         state = states.get(ret.sale_id)
         if state is None:
             continue
         applied = apply_return(state, items=ret.items, refund_amount=ret.refund_amount)
-        collected -= applied.money
-        profit -= applied.profit
-        units -= applied.units
-        refunds += applied.money
-    transactions = len(sales)
+        return_events.append(_return_event(ret, state.sale, applied))
+    for sale, event in zip(sales, sale_events):
+        event["counts"] = _counts_as_transaction(states[sale.id])
+    return {"sales": sale_events, "returns": return_events}
+
+
+def totals_from_activity(activity: dict) -> dict:
+    sales = activity["sales"]
+    returns = activity["returns"]
+    revenue = sum((row["money"] for row in sales), Decimal("0")) - sum(
+        (row["money"] for row in returns), Decimal("0")
+    )
+    profit = sum((row["profit"] for row in sales), Decimal("0")) - sum(
+        (row["profit"] for row in returns), Decimal("0")
+    )
+    units = sum((row["units"] for row in sales), Decimal("0")) - sum(
+        (row["units"] for row in returns), Decimal("0")
+    )
+    refunds = sum((row["money"] for row in returns), Decimal("0"))
+    transactions = sum(1 for row in sales if row["counts"])
     return {
-        "revenue": money_float(collected),
+        "revenue": money_float(revenue),
         "transactions": transactions,
-        "average_order_value": money_float(collected / transactions) if transactions else 0.0,
+        "average_order_value": money_float(revenue / transactions) if transactions else 0.0,
         "gross_profit": money_float(profit),
         "items_per_transaction": tenth_float(units / transactions) if transactions else 0.0,
         "refunds": money_float(refunds),
     }
+
+
+def period_totals(shop, start, end, *, inclusive_end: bool = False) -> dict:
+    return totals_from_activity(recognize_period(shop, start, end, inclusive_end=inclusive_end))

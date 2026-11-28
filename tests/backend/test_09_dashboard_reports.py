@@ -108,19 +108,22 @@ class TestDashboardAndReportsAPI:
         assert body["kpis"]["totalSales"]["current"] == 8.5
         assert body["kpis"]["transactions"]["current"] == 1
         assert body["kpis"]["averageOrderValue"]["current"] == 8.5
-        assert body["kpis"]["grossProfit"]["current"] == 3.09
-        assert body["kpis"]["itemsPerTransaction"]["current"] == 1.5
+        assert body["kpis"]["grossProfit"]["current"] == 0
+        assert body["kpis"]["itemsPerTransaction"]["current"] == 0
         assert body["kpis"]["refunds"]["current"] == 2.5
         assert len(body["salesTrend"]) == 7
         assert body["categories"][0]["category"] == "Beverages"
+        assert body["categories"][0]["total"] == 8.5
         assert body["paymentMethods"][0]["method"] == "Cash"
         assert body["salesByCashier"][0]["name"] == "Shop Cashier"
+        assert body["salesByCashier"][0]["total"] == 8.5
         assert body["topProducts"][0]["name"] == "Green Tea"
+        assert body["topProducts"][0]["revenue"] == 8.5
         assert sum(point["discounts"] for point in body["discountsAndRefunds"]) == 1.0
         assert sum(point["refunds"] for point in body["discountsAndRefunds"]) == 2.5
         assert any(row["name"] == "Empty Shelf" and row["status"] == "out" for row in body["lowStock"])
         assert body["recentSales"][0]["reference"] == "INV-1"
-        assert sum(point["total"] for point in body["salesByHour"]) == 11.0
+        assert sum(point["total"] for point in body["salesByHour"]) == 8.5
 
     def test_window_uses_the_shop_timezone(self, shop_a):
         shop_a.timezone = "Asia/Colombo"
@@ -157,8 +160,15 @@ class TestDashboardAndReportsAPI:
         assert kpis["transactions"]["current"] == 0
         assert kpis["averageOrderValue"]["current"] == 0
         assert kpis["itemsPerTransaction"]["current"] == 0
-        assert kpis["grossProfit"]["current"] == -0.91
+        assert kpis["grossProfit"]["current"] == -4
         assert kpis["refunds"]["current"] == 2.5
+        assert sum(point["current"] for point in response.data["salesTrend"]) == -2.5
+        start = (timezone.now() - timedelta(days=1)).replace(tzinfo=None).isoformat(timespec="seconds")
+        profit = client.get("/api/reports/profit", {"fromDate": start})
+        assert profit.status_code == 200
+        assert profit.data["summary"]["grandTotal"] == -4
+        sales = client.get("/api/reports/sales", {"fromDate": start})
+        assert sales.data["summary"]["grandTotal"] == -2.5
 
     def test_refund_larger_than_the_sale_is_capped(self, manager_a, shop_a, cashier_a, product_a):
         sale = _worked_sale(shop_a, cashier_a, product_a, "INV-CAP")
@@ -177,7 +187,7 @@ class TestDashboardAndReportsAPI:
         assert kpis["totalSales"]["current"] == 0
         assert kpis["refunds"]["current"] == 11
         assert kpis["grossProfit"]["current"] == 0
-        assert kpis["transactions"]["current"] == 1
+        assert kpis["transactions"]["current"] == 0
 
     def test_second_refund_only_takes_the_remainder(self, manager_a, shop_a, cashier_a, product_a):
         sale = _worked_sale(shop_a, cashier_a, product_a, "INV-TWO")
@@ -279,6 +289,77 @@ class TestDashboardAndReportsAPI:
         kpis = client.get("/api/dashboard/overview?days=7").data["kpis"]
 
         assert kpis["itemsPerTransaction"]["current"] == 1.3
+
+    def test_return_of_a_losing_line_keeps_that_loss(self, manager_a, shop_a, cashier_a, product_a, category_a):
+        loser = Product.objects.create(
+            shop=shop_a,
+            category=category_a,
+            name="Loss Leader",
+            sku="LOSS-LEADER",
+            unit="pcs",
+            cost_price=Decimal("9.00"),
+            selling_price=Decimal("5.00"),
+            reorder_level=0,
+            stock_quantity=5,
+            status=True,
+        )
+        sale = Sale.objects.create(
+            shop=shop_a,
+            reference="INV-MIX",
+            subtotal=Decimal("15.00"),
+            discount=Decimal("0"),
+            tax=Decimal("0"),
+            total=Decimal("15.00"),
+            payment_method="CASH",
+            cashier=cashier_a,
+        )
+        SaleItem.objects.create(
+            sale=sale,
+            product=product_a,
+            quantity=Decimal("1"),
+            unit_price=Decimal("10.00"),
+            cost_price=Decimal("2.00"),
+        )
+        SaleItem.objects.create(
+            sale=sale,
+            product=loser,
+            quantity=Decimal("1"),
+            unit_price=Decimal("5.00"),
+            cost_price=Decimal("9.00"),
+        )
+        SalesReturn.objects.create(
+            shop=shop_a,
+            reference="RET-MIX",
+            sale=sale,
+            reason="Losing line",
+            refund_amount=Decimal("5.00"),
+            items=[{"productId": loser.id, "quantity": "1"}],
+        )
+        client = authed_client(manager_a, shop_a)
+
+        kpis = client.get("/api/dashboard/overview?days=7").data["kpis"]
+
+        assert kpis["totalSales"]["current"] == 10
+        assert kpis["grossProfit"]["current"] == 8
+
+    def test_customer_totals_subtract_refunds(self, manager_a, shop_a, cashier_a, product_a, customer_a):
+        sale = _worked_sale(shop_a, cashier_a, product_a, "INV-CUST")
+        sale.customer = customer_a
+        sale.save(update_fields=["customer"])
+        SalesReturn.objects.create(
+            shop=shop_a,
+            reference="RET-CUST",
+            sale=sale,
+            reason="Partial",
+            refund_amount=Decimal("2.50"),
+            items=[],
+        )
+        client = authed_client(manager_a, shop_a)
+
+        rows = client.get("/api/reports/customers").data["rows"]
+        match = next(row for row in rows if row["name"] == customer_a.name)
+
+        assert match["salesTotal"] == 8.5
 
     def test_cashier_cannot_load_reports(self, cashier_a, shop_a):
         client = authed_client(cashier_a, shop_a)
