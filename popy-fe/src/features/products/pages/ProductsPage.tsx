@@ -126,6 +126,7 @@ export const ProductsPage = () => {
       width: 160,
       sortable: false,
       filterable: false,
+      display: 'flex',
       renderCell: (params) => {
         const row = params.row;
         const hasBarcode = Boolean(row.barcode?.trim());
@@ -141,7 +142,7 @@ export const ProductsPage = () => {
         };
 
         return (
-          <Stack direction="row">
+          <Stack direction="row" alignItems="center" sx={{ height: '100%' }}>
             {hasBarcode && (
               <Tooltip title="Print barcode label">
                 <IconButton
