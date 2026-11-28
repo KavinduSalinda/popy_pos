@@ -23,6 +23,8 @@ export interface DataTableProps<T extends object> {
   onRowClick?: DataGridProps['onRowClick'];
   /** Fixed grid height when autoHeight is false (e.g. "100%" or 420). */
   height?: number | string;
+  /** Row height in pixels. Use when a cell shows two lines. */
+  rowHeight?: number;
   sx?: SxProps<Theme>;
 }
 
@@ -40,6 +42,7 @@ export function DataTable<T extends object>({
   pageSizeOptions = [...APP_CONFIG.pageSizeOptions],
   onRowClick,
   height,
+  rowHeight,
   sx,
 }: DataTableProps<T>) {
   return (
@@ -57,6 +60,7 @@ export function DataTable<T extends object>({
         onPaginationModelChange={onPaginationModelChange}
         pageSizeOptions={pageSizeOptions}
         onRowClick={onRowClick}
+        rowHeight={rowHeight}
         disableRowSelectionOnClick
         disableColumnMenu
         sx={{

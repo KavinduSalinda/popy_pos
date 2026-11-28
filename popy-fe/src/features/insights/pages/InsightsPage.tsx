@@ -1,21 +1,23 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Box,
   Button,
   Card,
   CardContent,
-  Chip,
   CircularProgress,
+  Paper,
   Stack,
   TextField,
+  ToggleButton,
+  ToggleButtonGroup,
   Typography,
 } from '@mui/material';
-import type { GridColDef } from '@mui/x-data-grid';
+import type { GridColDef, GridPaginationModel } from '@mui/x-data-grid';
 import { toast } from 'react-toastify';
-import { PageHeader } from '@/components/common';
+import { EmptyState, PageHeader, SearchInput, StatusChip } from '@/components/common';
 import { DataTable } from '@/components/tables';
-import { formatQuantity } from '@/utils';
+import { formatQuantity, toNumber } from '@/utils';
 import { getErrorMessage } from '@/utils/error';
 import {
   useAskInsightMutation,
@@ -24,31 +26,138 @@ import {
   useSaveInsightKeyMutation,
   useWriteInsightSummaryMutation,
 } from '../insightsApi';
+import { readRequirement, type HorizonDays, type RequirementReading } from '../present';
 import type { ChatTurn, RequirementRow } from '../types';
 
-const quantityColumn = (
-  field: keyof RequirementRow,
-  headerName: string,
-): GridColDef<RequirementRow & { id: number }> => ({
-  field,
-  headerName,
-  flex: 0.7,
-  minWidth: 110,
-  valueFormatter: (value: number) => formatQuantity(value),
-});
+type ProductView = 'order' | 'all';
 
-const columns: GridColDef<RequirementRow & { id: number }>[] = [
-  { field: 'product', headerName: 'Product', flex: 1.2, minWidth: 160 },
-  { field: 'sku', headerName: 'SKU', flex: 0.8, minWidth: 110 },
-  quantityColumn('stock', 'Stock'),
-  quantityColumn('soldLast30', 'Sold (30d)'),
-  quantityColumn('perDay', 'Per day'),
-  quantityColumn('need7', 'Need 7'),
-  quantityColumn('need30', 'Need 30'),
-  quantityColumn('need90', 'Need 90'),
-  quantityColumn('buy7', 'Buy 7'),
-  quantityColumn('buy30', 'Buy 30'),
-  quantityColumn('buy90', 'Buy 90'),
+type InsightRow = RequirementRow & RequirementReading & { id: string };
+
+const HORIZONS: { days: HorizonDays; title: string; hint: string }[] = [
+  { days: 7, title: 'Next 7 days', hint: 'Coming week' },
+  { days: 30, title: 'Next 30 days', hint: 'Coming month' },
+  { days: 90, title: 'Next 90 days', hint: 'Coming 3 months' },
+];
+
+const amountCell = (value: number): string =>
+  value > 0 ? formatQuantity(value) : 'None';
+
+const orderColor = (row: InsightRow): string => {
+  if (row.toOrder <= 0) return 'text.secondary';
+  if (row.tone === 'error') return 'error.main';
+  return 'warning.main';
+};
+
+const columns: GridColDef<InsightRow>[] = [
+  {
+    field: 'product',
+    headerName: 'Product',
+    flex: 1.4,
+    minWidth: 200,
+    display: 'flex',
+    renderCell: (params) => (
+      <Box sx={{ minWidth: 0, lineHeight: 1.25 }}>
+        <Typography variant="body2" fontWeight={600} noWrap>
+          {params.row.product}
+        </Typography>
+        <Typography variant="caption" color="text.secondary" noWrap>
+          {params.row.sku}
+        </Typography>
+      </Box>
+    ),
+  },
+  {
+    field: 'stock',
+    headerName: 'In stock',
+    type: 'number',
+    width: 110,
+    valueFormatter: (value: number) => formatQuantity(value),
+  },
+  {
+    field: 'perDay',
+    headerName: 'Selling pace',
+    type: 'number',
+    flex: 1,
+    minWidth: 180,
+    align: 'left',
+    headerAlign: 'left',
+    display: 'flex',
+    renderCell: (params) => (
+      <Box sx={{ minWidth: 0, lineHeight: 1.25 }}>
+        <Typography variant="body2" noWrap>
+          {params.row.sellingPace}
+        </Typography>
+        <Typography variant="caption" color="text.secondary" noWrap>
+          {toNumber(params.row.soldLast30) > 0
+            ? `${formatQuantity(params.row.soldLast30)} sold in 30 days`
+            : 'Nothing sold in 30 days'}
+        </Typography>
+      </Box>
+    ),
+  },
+  {
+    field: 'coverDays',
+    headerName: 'Stock lasts',
+    type: 'number',
+    flex: 1,
+    minWidth: 160,
+    align: 'left',
+    headerAlign: 'left',
+    display: 'flex',
+    renderCell: (params) => (
+      <Typography variant="body2">{params.row.stockLasts}</Typography>
+    ),
+  },
+  {
+    field: 'expectedSales',
+    headerName: 'Expected sales',
+    type: 'number',
+    width: 150,
+    align: 'right',
+    headerAlign: 'right',
+    display: 'flex',
+    renderCell: (params) => (
+      <Typography
+        variant="body2"
+        color={params.row.expectedSales > 0 ? 'text.primary' : 'text.secondary'}
+      >
+        {amountCell(params.row.expectedSales)}
+      </Typography>
+    ),
+  },
+  {
+    field: 'toOrder',
+    headerName: 'To order',
+    type: 'number',
+    flex: 1.1,
+    minWidth: 220,
+    align: 'left',
+    headerAlign: 'left',
+    display: 'flex',
+    renderCell: (params) => (
+      <Box sx={{ minWidth: 0, lineHeight: 1.25 }}>
+        <Typography
+          variant="body2"
+          fontWeight={params.row.toOrder > 0 ? 700 : 400}
+          color={orderColor(params.row)}
+        >
+          {amountCell(params.row.toOrder)}
+        </Typography>
+        <Typography variant="caption" color="text.secondary" noWrap>
+          {params.row.otherPeriods}
+        </Typography>
+      </Box>
+    ),
+  },
+  {
+    field: 'advice',
+    headerName: 'What to do',
+    width: 150,
+    display: 'flex',
+    renderCell: (params) => (
+      <StatusChip label={params.row.advice} color={params.row.tone} />
+    ),
+  },
 ];
 
 const plainInsightText = (value: string): string => {
@@ -90,6 +199,13 @@ export const InsightsPage = () => {
   const [apiKey, setApiKey] = useState('');
   const [question, setQuestion] = useState('');
   const [messages, setMessages] = useState<ChatTurn[]>([]);
+  const [horizon, setHorizon] = useState<HorizonDays>(30);
+  const [view, setView] = useState<ProductView>('order');
+  const [query, setQuery] = useState('');
+  const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
+    page: 0,
+    pageSize: 10,
+  });
 
   const configured = Boolean(settings.data?.configured);
   const requestedSummary = useRef(false);
@@ -139,13 +255,70 @@ export const InsightsPage = () => {
   };
 
   const report = requirements.data;
-  const rows = (report?.rows ?? []).map((row, index) => ({ id: index, ...row }));
+  const sourceRows = report?.rows;
+
+  const readings = useMemo(() => {
+    const seen = new Map<string, number>();
+    return (sourceRows ?? [])
+      .map((row) => {
+        const base = row.sku || row.product;
+        const count = seen.get(base) ?? 0;
+        seen.set(base, count + 1);
+        return {
+          id: count === 0 ? base : `${base}-${count}`,
+          ...row,
+          ...readRequirement(row, horizon),
+        };
+      })
+      .sort(
+        (a, b) =>
+          b.toOrder - a.toOrder ||
+          a.coverDays - b.coverDays ||
+          a.product.localeCompare(b.product),
+      );
+  }, [sourceRows, horizon]);
+
+  const ordering = readings.filter((row) => row.toOrder > 0);
+  const pool = view === 'order' ? ordering : readings;
+  const needle = query.trim().toLowerCase();
+  const rows = needle
+    ? pool.filter((row) =>
+        `${row.product} ${row.sku}`.toLowerCase().includes(needle),
+      )
+    : pool;
+
+  const catalog = sourceRows ?? [];
+  const unitsFor = (days: HorizonDays) => toNumber(report?.summary[`buy${days}`]);
+  const shortFor = (days: HorizonDays) =>
+    catalog.filter((row) => toNumber(row[`buy${days}`]) > 0).length;
+
+  const showPage = (nextPage: number) =>
+    setPaginationModel((current) => ({ ...current, page: nextPage }));
+
+  const empty =
+    catalog.length === 0
+      ? {
+          title: 'No products yet',
+          description: 'Active products show up here once they are in the catalog.',
+          showAll: false,
+        }
+      : view === 'order' && ordering.length === 0
+        ? {
+            title: 'Nothing to order',
+            description: `You already have enough stock for the next ${horizon} days.`,
+            showAll: true,
+          }
+        : {
+            title: 'No matching products',
+            description: 'Try another name or product code.',
+            showAll: false,
+          };
 
   return (
     <>
       <PageHeader
         title="Insights"
-        subtitle="Estimated from the last 30 days of sales. Figures are a guide for what to buy, not a promise."
+        subtitle="What to order next, based on how each product sold over the last 30 days. These are estimates, not a promise."
       />
 
       {requirements.isLoading ? (
@@ -156,12 +329,166 @@ export const InsightsPage = () => {
         <Alert severity="error">{getErrorMessage(requirements.error)}</Alert>
       ) : (
         <Stack spacing={2}>
-          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-            <Chip label={`Buy 7 days: ${formatQuantity(report?.summary.buy7)}`} />
-            <Chip label={`Buy 30 days: ${formatQuantity(report?.summary.buy30)}`} />
-            <Chip label={`Buy 90 days: ${formatQuantity(report?.summary.buy90)}`} />
+          <Box
+            sx={{
+              display: 'grid',
+              gap: 2,
+              gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' },
+            }}
+          >
+            {HORIZONS.map((item) => {
+              const selected = horizon === item.days;
+              const units = unitsFor(item.days);
+              const shortCount = shortFor(item.days);
+              return (
+                <Card
+                  key={item.days}
+                  component="button"
+                  type="button"
+                  aria-pressed={selected}
+                  onClick={() => {
+                    setHorizon(item.days);
+                    showPage(0);
+                  }}
+                  sx={{
+                    textAlign: 'left',
+                    font: 'inherit',
+                    color: 'inherit',
+                    cursor: 'pointer',
+                    width: '100%',
+                    p: 0,
+                    boxShadow: 'none',
+                    borderStyle: 'solid',
+                    borderWidth: 1,
+                    borderColor: selected ? 'primary.main' : 'divider',
+                    bgcolor: selected ? 'action.selected' : 'background.paper',
+                  }}
+                >
+                  <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+                    <Typography sx={{ color: 'text.secondary', fontSize: 12 }}>
+                      {item.hint}
+                    </Typography>
+                    <Typography variant="subtitle1" fontWeight={700}>
+                      {item.title}
+                    </Typography>
+                    <Typography sx={{ fontSize: 28, fontWeight: 700, lineHeight: 1.2, my: 0.5 }}>
+                      {formatQuantity(units)}
+                    </Typography>
+                    <Typography sx={{ color: 'text.secondary', fontSize: 12, mb: 0.5 }}>
+                      units to order
+                    </Typography>
+                    <Typography
+                      sx={{
+                        fontSize: 12,
+                        fontWeight: 600,
+                        color: shortCount > 0 ? 'warning.main' : 'success.main',
+                      }}
+                    >
+                      {catalog.length === 0
+                        ? 'No products yet'
+                        : shortCount === 0
+                          ? 'Every product is covered'
+                          : shortCount === 1
+                            ? '1 product is short'
+                            : `${shortCount} products are short`}
+                    </Typography>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </Box>
+
+          <Stack
+            direction={{ xs: 'column', lg: 'row' }}
+            spacing={2}
+            justifyContent="space-between"
+            alignItems={{ lg: 'flex-end' }}
+          >
+            <Box>
+              <Typography variant="subtitle1" fontWeight={700}>
+                What to order for the next {horizon} days
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 640 }}>
+                Expected sales is based on the last 30 days. To order is that amount minus
+                the stock you already have. The note under it covers the other two periods.
+              </Typography>
+            </Box>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ sm: 'center' }}>
+              <ToggleButtonGroup
+                exclusive
+                size="small"
+                value={view}
+                aria-label="Which products to show"
+                onChange={(_, next: ProductView | null) => {
+                  if (!next) return;
+                  setView(next);
+                  showPage(0);
+                }}
+              >
+                <ToggleButton value="order">Needs an order</ToggleButton>
+                <ToggleButton value="all">All products</ToggleButton>
+              </ToggleButtonGroup>
+              <SearchInput
+                placeholder="Search products"
+                onSearch={(value) => {
+                  setQuery(value);
+                  showPage(0);
+                }}
+              />
+            </Stack>
           </Stack>
-          <DataTable rows={rows} columns={columns} paginationMode="client" />
+
+          {rows.length === 0 ? (
+            <Paper variant="outlined">
+              <EmptyState
+                title={empty.title}
+                description={empty.description}
+                action={
+                  empty.showAll ? (
+                    <Button
+                      variant="outlined"
+                      onClick={() => {
+                        setView('all');
+                        showPage(0);
+                      }}
+                    >
+                      Show all products
+                    </Button>
+                  ) : undefined
+                }
+              />
+            </Paper>
+          ) : (
+            <DataTable
+              rows={rows}
+              columns={columns}
+              paginationMode="client"
+              paginationModel={paginationModel}
+              onPaginationModelChange={setPaginationModel}
+              rowHeight={64}
+              getRowClassName={(params) => {
+                if (params.row.tone === 'error') return 'insight-urgent';
+                if (params.row.tone === 'warning') return 'insight-soon';
+                return '';
+              }}
+              sx={{
+                '& .MuiDataGrid-row.insight-urgent': {
+                  bgcolor: 'rgba(220, 38, 38, 0.08)',
+                },
+                '& .MuiDataGrid-row.insight-urgent:hover, & .MuiDataGrid-row.insight-urgent.Mui-hovered':
+                  {
+                    bgcolor: 'rgba(220, 38, 38, 0.14)',
+                  },
+                '& .MuiDataGrid-row.insight-soon': {
+                  bgcolor: 'rgba(217, 119, 6, 0.08)',
+                },
+                '& .MuiDataGrid-row.insight-soon:hover, & .MuiDataGrid-row.insight-soon.Mui-hovered':
+                  {
+                    bgcolor: 'rgba(217, 119, 6, 0.14)',
+                  },
+              }}
+            />
+          )}
         </Stack>
       )}
 

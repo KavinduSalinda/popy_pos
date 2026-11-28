@@ -485,7 +485,7 @@ export const HANDBOOK_SECTIONS: HandbookSection[] = [
       },
       {
         title: 'Insights',
-        body: 'The requirements report estimates units to buy for 7, 30, and 90 days from the last 30 days of sales. A written forecast and questions use a free Groq key saved for this shop.',
+        body: 'Pick the next 7, 30, or 90 days. The table shows how fast each product sells, how long the stock will last, and how many to order, estimated from the last 30 days of sales. A written forecast and questions use a free Groq key saved for this shop.',
       },
       {
         title: 'Offline checkout',
