@@ -125,11 +125,11 @@ export const HANDBOOK_SECTIONS: HandbookSection[] = [
       },
       {
         title: 'Cashier',
-        body: 'Dashboard, point of sale, sales history, and customer create or edit. Can view products and categories, and can see returns but cannot record one. Can send the checkout email or SMS. Cannot open inventory, purchases, reports, users, or settings.',
+        body: 'Point of sale, sales history, and customer create or edit. Can view products. Can send the checkout email or SMS. Cannot open the dashboard, categories, inventory, purchases, returns, reports, users, or settings.',
       },
       {
         title: 'Inventory Officer',
-        body: 'Dashboard, product edits, stock adjustments, purchases, and recording returns. Can view categories and suppliers but cannot create products, categories, or suppliers. Does not use the point of sale, customers, reports, users, or settings.',
+        body: 'Product edits, stock adjustments, purchases, and recording returns. Can view categories and suppliers but cannot create products, categories, or suppliers. Does not use the dashboard, the point of sale, customers, reports, users, or settings.',
       },
     ],
   },
@@ -311,7 +311,7 @@ export const HANDBOOK_SECTIONS: HandbookSection[] = [
           'Optionally attach a customer. The discount is a flat amount and cannot be more than the subtotal. Tax is added on the amount after the discount.',
           'Take payment: Cash, Card, Mobile, or Credit. Cash asks how much was paid. The other methods record the sale total as paid.',
           'The sale is saved with a reference such as SL-2026-0001, and each line reduces on-hand stock.',
-          'A completed sale cannot be edited or deleted. Use Returns if the customer brings the goods back.',
+          'A completed sale cannot be edited or deleted. Look the receipt up on Sales. Super Admin, Manager, and Inventory Officer record the return.',
         ],
         parameters: [
           {
@@ -379,7 +379,7 @@ export const HANDBOOK_SECTIONS: HandbookSection[] = [
     operations: [
       {
         title: 'Return a sale',
-        who: 'Super Admin, Manager, and Inventory Officer. Cashiers can look up the receipt, but they cannot record the return.',
+        who: 'Super Admin, Manager, and Inventory Officer.',
         path: 'Returns → Sales Return',
         steps: [
           'Open Returns and stay on Sales Return.',

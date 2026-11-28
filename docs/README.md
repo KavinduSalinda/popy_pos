@@ -41,7 +41,7 @@ popy/
 |------|-------------|
 | Super Admin | Every shop feature, including shops, settings, and staff. Can switch shops |
 | Manager | Operations, reports, point of sale, staff accounts, and settings in their own shop |
-| Cashier | Point of sale, customers, and sales. Can view products and categories |
+| Cashier | Point of sale, customers, and sales. Can view products |
 | Inventory Officer | Stock, purchases, product updates, and returns — no point of sale or customer access |
 
 See [Authentication & roles](features/authentication-and-roles.md#roles) for what each role can do.

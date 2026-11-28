@@ -1,6 +1,8 @@
 import { Box, Button, Stack, Typography } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import { ROUTES } from '@/constants';
+import { resolveRolePermissions, ROUTES } from '@/constants';
+import { defaultAppPath } from '@/app/routes/navigation';
+import { useAuth } from '@/hooks/useAuth';
 
 interface ErrorPageProps {
   code: string;
@@ -10,6 +12,12 @@ interface ErrorPageProps {
 
 export const ErrorPage = ({ code, title, description }: ErrorPageProps) => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const home = user
+    ? defaultAppPath((permission) =>
+        resolveRolePermissions(user.role, user.permissions ?? []).includes(permission),
+      )
+    : ROUTES.LOGIN;
   return (
     <Box
       sx={{
@@ -39,9 +47,9 @@ export const ErrorPage = ({ code, title, description }: ErrorPageProps) => {
           </Button>
           <Button
             variant="contained"
-            onClick={() => navigate(ROUTES.DASHBOARD)}
+            onClick={() => navigate(home)}
           >
-            Go to dashboard
+            Go home
           </Button>
         </Stack>
       </Stack>

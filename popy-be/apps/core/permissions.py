@@ -34,7 +34,6 @@ ROLE_PERMISSIONS: dict[str, set[str]] = {
     },
     "CASHIER": {
         "PRODUCT_VIEW",
-        "CATEGORY_VIEW",
         "POS_ACCESS",
         "POS_CHECKOUT_SEND_EMAIL",
         "POS_CHECKOUT_SEND_SMS",
@@ -42,7 +41,6 @@ ROLE_PERMISSIONS: dict[str, set[str]] = {
         "SALE_VIEW",
         "CUSTOMER_VIEW",
         "CUSTOMER_MANAGE",
-        "DASHBOARD_VIEW",
         "ATTENDANCE_MARK",
     },
     "INVENTORY_OFFICER": {
@@ -56,7 +54,6 @@ ROLE_PERMISSIONS: dict[str, set[str]] = {
         "PURCHASE_MANAGE",
         "RETURN_CREATE",
         "RETURN_VIEW",
-        "DASHBOARD_VIEW",
         "ATTENDANCE_MARK",
     },
 }

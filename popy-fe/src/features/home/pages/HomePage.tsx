@@ -3,7 +3,8 @@ import { Link as RouterLink } from 'react-router-dom';
 import { Trans, useTranslation } from 'react-i18next';
 import { LanguageSwitcher } from '@/components/common/LanguageSwitcher';
 import { useAuth } from '@/hooks/useAuth';
-import { ROUTES } from '@/constants';
+import { resolveRolePermissions, ROUTES } from '@/constants';
+import { defaultAppPath } from '@/app/routes/navigation';
 import { LOGO_SRC } from '../brand';
 import { TestimonialCarousel } from '../components/TestimonialCarousel';
 import './HomePage.css';
@@ -78,9 +79,14 @@ const Brand = () => (
 
 const HomePage = () => {
   const { t } = useTranslation('home');
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
-  const startTo = isAuthenticated ? ROUTES.DASHBOARD : ROUTES.LOGIN;
+  const home = user
+    ? defaultAppPath((permission) =>
+        resolveRolePermissions(user.role, user.permissions ?? []).includes(permission),
+      )
+    : ROUTES.LOGIN;
+  const startTo = isAuthenticated ? home : ROUTES.LOGIN;
   const startLabel = isAuthenticated ? t('nav.goDashboard') : t('nav.getStarted');
   const loginLabel = isAuthenticated ? t('nav.openPos') : t('nav.login');
   const loginTo = isAuthenticated ? ROUTES.POS : ROUTES.LOGIN;

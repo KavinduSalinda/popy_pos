@@ -4,16 +4,19 @@ import { Link as RouterLink, Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Loader } from '@/components/common/Loader';
 import { ServerConnectionBadge, ServerSettingsDialog } from '@/components/common/ServerSettingsDialog';
-import { ROUTES } from '@/constants';
+import { resolveRolePermissions, ROUTES } from '@/constants';
+import { defaultAppPath } from '@/app/routes/navigation';
 import { GravityStarsBackground } from '@/components/animate-ui/components/backgrounds/gravity-stars';
 import { LOGO_SRC, POPY, popyPublicTheme } from '@/features/home/brand';
 
 export const AuthLayout = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const [serverSettingsOpen, setServerSettingsOpen] = useState(false);
 
-  if (isAuthenticated) {
-    return <Navigate to={ROUTES.DASHBOARD} replace />;
+  if (isAuthenticated && user) {
+    const allowed = resolveRolePermissions(user.role, user.permissions ?? []);
+    const home = defaultAppPath((permission) => allowed.includes(permission));
+    return <Navigate to={home} replace />;
   }
 
   return (

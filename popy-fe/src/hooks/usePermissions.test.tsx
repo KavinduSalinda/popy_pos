@@ -9,7 +9,10 @@ import { PERMISSIONS } from '@/constants/permissions';
 import { ROLES } from '@/constants/roles';
 
 const wrapper =
-  (role: (typeof ROLES)[keyof typeof ROLES]) =>
+  (
+    role: (typeof ROLES)[keyof typeof ROLES],
+    permissions?: (typeof PERMISSIONS)[keyof typeof PERMISSIONS][],
+  ) =>
   ({ children }: { children: ReactNode }) => {
     const store = configureStore({
       reducer: { auth: authReducer },
@@ -20,6 +23,7 @@ const wrapper =
             name: 'Cashier',
             email: 'c@test.com',
             role,
+            permissions,
           },
           accessToken: 't',
           refreshToken: 'r',
@@ -37,6 +41,16 @@ describe('usePermissions', () => {
     });
     expect(result.current.hasPermission(PERMISSIONS.POS_ACCESS)).toBe(true);
     expect(result.current.hasPermission(PERMISSIONS.USER_MANAGE)).toBe(false);
+    expect(result.current.hasPermission(PERMISSIONS.DASHBOARD_VIEW)).toBe(false);
+    expect(result.current.hasPermission(PERMISSIONS.CATEGORY_VIEW)).toBe(false);
+    expect(result.current.hasPermission(PERMISSIONS.RETURN_VIEW)).toBe(false);
+  });
+
+  it('does not restore dashboard from a saved cashier permission list', () => {
+    const { result } = renderHook(() => usePermissions(), {
+      wrapper: wrapper(ROLES.CASHIER, [PERMISSIONS.DASHBOARD_VIEW]),
+    });
+    expect(result.current.hasPermission(PERMISSIONS.DASHBOARD_VIEW)).toBe(false);
   });
 
   it('grants all permissions to super admin', () => {

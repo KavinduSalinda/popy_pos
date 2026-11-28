@@ -134,3 +134,16 @@ export const NAV_ITEMS: NavItem[] = [
     alwaysVisible: true,
   },
 ];
+
+/** First sidebar page this person can open. Hidden and always-on items are skipped. */
+export const defaultAppPath = (
+  can: (permission: Permission) => boolean,
+): string => {
+  const item = NAV_ITEMS.find((entry) => {
+    if (entry.hidden || entry.alwaysVisible) return false;
+    if (entry.anyOf?.length) return entry.anyOf.some(can);
+    if (entry.permission) return can(entry.permission);
+    return false;
+  });
+  return item?.path ?? ROUTES.HANDBOOK;
+};

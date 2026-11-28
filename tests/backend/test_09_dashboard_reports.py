@@ -5,9 +5,11 @@ from decimal import Decimal
 from zoneinfo import ZoneInfo
 
 import pytest
+from django.contrib.auth import get_user_model
 from django.utils import timezone
 
 from apps.catalog.models import Product
+from apps.core.choices import Role
 from apps.dashboard.services import _bounds
 from apps.returns.models import SalesReturn
 from apps.sales.models import Sale, SaleItem
@@ -284,3 +286,24 @@ class TestDashboardAndReportsAPI:
         response = client.get("/api/reports/sales")
 
         assert response.status_code == 403
+
+    def test_cashier_and_inventory_officer_cannot_open_the_dashboard(
+        self, cashier_a, manager_a, shop_a
+    ):
+        officer = get_user_model().objects.create_user(
+            email="inventory-dashboard@test.com",
+            password="testpass123",
+            name="Inventory Officer",
+            role=Role.INVENTORY_OFFICER,
+            shop=shop_a,
+        )
+
+        cashier = authed_client(cashier_a, shop_a)
+        assert cashier.get("/api/dashboard/overview").status_code == 403
+        assert cashier.get("/api/categories").status_code == 403
+
+        officer_client = authed_client(officer, shop_a)
+        assert officer_client.get("/api/dashboard/overview").status_code == 403
+
+        manager = authed_client(manager_a, shop_a)
+        assert manager.get("/api/dashboard/overview").status_code == 200

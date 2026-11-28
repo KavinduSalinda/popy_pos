@@ -107,7 +107,6 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     PERMISSIONS.ATTENDANCE_VIEW,
   ],
   [ROLES.CASHIER]: [
-    PERMISSIONS.DASHBOARD_VIEW,
     PERMISSIONS.PRODUCT_VIEW,
     PERMISSIONS.CUSTOMER_VIEW,
     PERMISSIONS.CUSTOMER_MANAGE,
@@ -116,11 +115,9 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     PERMISSIONS.POS_CHECKOUT_SEND_SMS,
     PERMISSIONS.SALE_VIEW,
     PERMISSIONS.SALE_CREATE,
-    PERMISSIONS.RETURN_VIEW,
     PERMISSIONS.ATTENDANCE_MARK,
   ],
   [ROLES.INVENTORY_OFFICER]: [
-    PERMISSIONS.DASHBOARD_VIEW,
     PERMISSIONS.PRODUCT_VIEW,
     PERMISSIONS.PRODUCT_CREATE,
     PERMISSIONS.PRODUCT_UPDATE,
@@ -132,6 +129,16 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     PERMISSIONS.SUPPLIER_MANAGE,
     PERMISSIONS.PURCHASE_VIEW,
     PERMISSIONS.PURCHASE_MANAGE,
+    PERMISSIONS.RETURN_VIEW,
     PERMISSIONS.ATTENDANCE_MARK,
   ],
 };
+
+/**
+ * The role map decides what the screen shows. A saved login list must not
+ * grant a menu the role no longer has.
+ */
+export const resolveRolePermissions = (
+  role: Role,
+  _apiPermissions: readonly string[] = [],
+): Permission[] => ROLE_PERMISSIONS[role] ?? [];

@@ -8,7 +8,8 @@ import { Loader } from '@/components/common';
 import { useLoginMutation } from '../authApi';
 import { loginSchema, type LoginFormValues } from '../schemas';
 import { getErrorMessage } from '@/utils';
-import { ROUTES } from '@/constants';
+import { PERMISSIONS, resolveRolePermissions, ROUTES } from '@/constants';
+import { defaultAppPath } from '@/app/routes/navigation';
 import { getApiBaseUrl } from '@/services/serverConfig';
 
 interface LocationState {
@@ -44,11 +45,19 @@ export const LoginPage = () => {
 
   const onSubmit = handleSubmit(async (values) => {
     try {
-      await login(values).unwrap();
+      const session = await login(values).unwrap();
+      const allowed = new Set(
+        resolveRolePermissions(session.user.role, session.user.permissions ?? []),
+      );
+      const home = defaultAppPath((permission) => allowed.has(permission));
       const state = location.state as LocationState | null;
       const from = state?.from;
+      const requested =
+        from && from !== ROUTES.HOME && from !== ROUTES.LOGIN ? from : home;
       const next =
-        from && from !== ROUTES.HOME && from !== ROUTES.LOGIN ? from : ROUTES.DASHBOARD;
+        requested === ROUTES.DASHBOARD && !allowed.has(PERMISSIONS.DASHBOARD_VIEW)
+          ? home
+          : requested;
       navigate(next, { replace: true });
     } catch {
       /* error surfaced via the `error` state */

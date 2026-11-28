@@ -2,9 +2,9 @@
 
 ## Overview
 
-The dashboard (`/dashboard`) is the landing page after login. It shows real-time business KPIs and charts for quick operational insight.
+The dashboard (`/dashboard`) is the landing page for Super Admin and Manager. It shows real-time business KPIs and charts for quick operational insight.
 
-**Access:** `DASHBOARD_VIEW` (all four roles)
+**Access:** `DASHBOARD_VIEW` (Super Admin and Manager)
 
 ## KPI cards
 

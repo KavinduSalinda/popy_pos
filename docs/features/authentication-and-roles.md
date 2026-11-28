@@ -46,11 +46,11 @@ Full day-to-day work in their own shop: catalog, stock, purchases, suppliers, cu
 
 ### Cashier
 
-Dashboard, point of sale, sales history, and customer create or edit. Can view products and categories, and can see returns but cannot record one. Can send the checkout email or SMS. Cannot open inventory, purchases, reports, users, or settings.
+Point of sale, sales history, and customer create or edit. Can view products. Can send the checkout email or SMS. Cannot open the dashboard, categories, inventory, purchases, returns, reports, users, or settings.
 
 ### Inventory Officer
 
-Dashboard, product edits, stock adjustments, purchases, and recording returns. Can view categories and suppliers but cannot create products, categories, or suppliers. Does not use the point of sale, customers, reports, users, or settings.
+Product edits, stock adjustments, purchases, and recording returns. Can view categories and suppliers but cannot create products, categories, or suppliers. Does not use the dashboard, the point of sale, customers, reports, users, or settings.
 
 ## Permission model
 
@@ -62,12 +62,12 @@ Permissions are string constants (e.g. `POS_ACCESS`, `SALE_CREATE`). The backend
 
 | Permission | Super Admin | Manager | Cashier | Inventory Officer |
 |------------|:-----------:|:-------:|:-------:|:-----------------:|
-| `DASHBOARD_VIEW` | ✓ | ✓ | ✓ | ✓ |
+| `DASHBOARD_VIEW` | ✓ | ✓ | — | — |
 | `PRODUCT_VIEW` | ✓ | ✓ | ✓ | ✓ |
 | `PRODUCT_CREATE` | ✓ | ✓ | — | — |
 | `PRODUCT_UPDATE` | ✓ | ✓ | — | ✓ |
 | `PRODUCT_DELETE` | ✓ | ✓ | — | — |
-| `CATEGORY_VIEW` | ✓ | ✓ | ✓ | ✓ |
+| `CATEGORY_VIEW` | ✓ | ✓ | — | ✓ |
 | `CATEGORY_MANAGE` | ✓ | ✓ | — | — |
 | `INVENTORY_VIEW` | ✓ | ✓ | — | ✓ |
 | `INVENTORY_ADJUST` | ✓ | ✓ | — | ✓ |
@@ -82,7 +82,7 @@ Permissions are string constants (e.g. `POS_ACCESS`, `SALE_CREATE`). The backend
 | `POS_CHECKOUT_SEND_SMS` | ✓ | ✓ | ✓ | — |
 | `SALE_VIEW` | ✓ | ✓ | ✓ | — |
 | `SALE_CREATE` | ✓ | ✓ | ✓ | — |
-| `RETURN_VIEW` | ✓ | ✓ | ✓ | ✓ |
+| `RETURN_VIEW` | ✓ | ✓ | — | ✓ |
 | `RETURN_CREATE` | ✓ | ✓ | — | ✓ |
 | `REPORT_VIEW` | ✓ | ✓ | — | — |
 | `USER_VIEW` | ✓ | ✓ | — | — |
@@ -94,21 +94,19 @@ Permissions are string constants (e.g. `POS_ACCESS`, `SALE_CREATE`). The backend
 
 | Sidebar item | Permission required | Typical roles |
 |--------------|---------------------|---------------|
-| Dashboard | `DASHBOARD_VIEW` | All |
+| Dashboard | `DASHBOARD_VIEW` | Super Admin, Manager |
 | Point of Sale | `POS_ACCESS` | Super Admin, Manager, Cashier |
 | Products | `PRODUCT_VIEW` | All |
-| Categories | `CATEGORY_VIEW` | Super Admin, Manager, Cashier, Inventory Officer |
+| Categories | `CATEGORY_VIEW` | Super Admin, Manager, Inventory Officer |
 | Inventory | `INVENTORY_VIEW` | Super Admin, Manager, Inventory Officer |
 | Suppliers | `SUPPLIER_VIEW` | Super Admin, Manager, Inventory Officer |
 | Customers | `CUSTOMER_VIEW` | Super Admin, Manager, Cashier |
 | Purchases | `PURCHASE_VIEW` | Super Admin, Manager, Inventory Officer |
 | Sales | `SALE_VIEW` | Super Admin, Manager, Cashier |
-| Returns | `RETURN_VIEW` | Super Admin, Manager, Cashier, Inventory Officer |
+| Returns | `RETURN_VIEW` | Super Admin, Manager, Inventory Officer |
 | Reports | `REPORT_VIEW` | Super Admin, Manager |
 | Users | `USER_VIEW` | Super Admin, Manager |
 | Settings | `SETTINGS_MANAGE` | Super Admin, Manager |
-
-Cashiers receive `CATEGORY_VIEW` from the backend on login, so they may see **Categories** in the sidebar even though they cannot manage categories.
 
 ### Frontend vs backend
 
@@ -117,7 +115,7 @@ Cashiers receive `CATEGORY_VIEW` from the backend on login, so they may see **Ca
 | Users page | `GET /api/users` requires `USER_VIEW`; writes require `USER_MANAGE` | Nav/route uses `USER_VIEW` |
 | Return writes | `RETURN_CREATE` | Some UI references `RETURN_MANAGE` (not used by API) |
 | Inventory Officer | `PRODUCT_UPDATE` only; no `PRODUCT_CREATE`, `CATEGORY_MANAGE`, or `SUPPLIER_MANAGE` | Client role map may show extra permissions — **API will reject** unauthorized writes |
-| Effective permissions | Returned on login per backend role map | Merged with frontend role map in `usePermissions()` |
+| Effective permissions | Returned on login per backend role map | Sidebar uses the frontend role map, so a saved login list cannot add a menu |
 
 When in doubt, trust the **backend permission matrix** above for what each role can actually do.
 
