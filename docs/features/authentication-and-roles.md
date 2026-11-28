@@ -36,6 +36,22 @@ Password reset endpoints return success messages but do not send emails or chang
 | Cashier | `CASHIER` | POS, sales, and customers |
 | Inventory Officer | `INVENTORY_OFFICER` | Stock, purchases, product updates, returns |
 
+### Super Admin
+
+Every shop feature, including creating shops and notification settings. Can assign any role, including Super Admin, and can switch shops.
+
+### Manager
+
+Full day-to-day work in their own shop: catalog, stock, purchases, suppliers, customers, point of sale, sales, returns, reports, staff accounts, and notification settings. Cannot create shops, assign Super Admin, or move a user to another shop.
+
+### Cashier
+
+Dashboard, point of sale, sales history, and customer create or edit. Can view products and categories, and can see returns but cannot record one. Can send the checkout email or SMS. Cannot open inventory, purchases, reports, users, or settings.
+
+### Inventory Officer
+
+Dashboard, product edits, stock adjustments, purchases, and recording returns. Can view categories and suppliers but cannot create products, categories, or suppliers. Does not use the point of sale, customers, reports, users, or settings.
+
 ## Permission model
 
 Permissions are string constants (e.g. `POS_ACCESS`, `SALE_CREATE`). The backend maps each role to a set of permissions in `popy-be/apps/core/permissions.py`. Super Admin has wildcard `*` (all permissions).
@@ -72,6 +88,7 @@ Permissions are string constants (e.g. `POS_ACCESS`, `SALE_CREATE`). The backend
 | `USER_VIEW` | ✓ | ✓ | — | — |
 | `USER_MANAGE` | ✓ | ✓ | — | — |
 | `SETTINGS_MANAGE` | ✓ | ✓ | — | — |
+| `SHOP_MANAGE` | ✓ | — | — | — |
 
 ### Sidebar visibility (by nav permission)
 

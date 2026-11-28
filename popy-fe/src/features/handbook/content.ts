@@ -106,7 +106,31 @@ export const HANDBOOK_SECTIONS: HandbookSection[] = [
     notes: [
       'Super Admin can switch shops from the top bar. Other staff stay in the shop they are assigned to.',
       'Set the on-hand quantity on the product form when you create or edit a product. Quantity also changes when you sell, receive a purchase, adjust inventory, or record a return.',
-      'Super Admin and Manager run the shop. A Cashier sells and can look up products, customers, and sales. An Inventory Officer updates products, stock, and purchases, and does not use the point of sale.',
+      'What each person can open depends on their role. The Roles section lists that.',
+    ],
+  },
+  {
+    id: 'roles',
+    title: 'Roles',
+    summary:
+      'Four roles. A person works in the shop they are assigned to. Super Admin can switch shops.',
+    topics: [
+      {
+        title: 'Super Admin',
+        body: 'Every shop feature, including creating shops and notification settings. Can assign any role, including Super Admin, and can switch shops.',
+      },
+      {
+        title: 'Manager',
+        body: 'Full day-to-day work in their own shop: catalog, stock, purchases, suppliers, customers, point of sale, sales, returns, reports, staff accounts, and notification settings. Cannot create shops, assign Super Admin, or move a user to another shop.',
+      },
+      {
+        title: 'Cashier',
+        body: 'Dashboard, point of sale, sales history, and customer create or edit. Can view products and categories, and can see returns but cannot record one. Can send the checkout email or SMS. Cannot open inventory, purchases, reports, users, or settings.',
+      },
+      {
+        title: 'Inventory Officer',
+        body: 'Dashboard, product edits, stock adjustments, purchases, and recording returns. Can view categories and suppliers but cannot create products, categories, or suppliers. Does not use the point of sale, customers, reports, users, or settings.',
+      },
     ],
   },
   {

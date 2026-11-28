@@ -39,12 +39,12 @@ popy/
 
 | Role | Typical use |
 |------|-------------|
-| Super Admin | Full system access, settings, user management |
-| Manager | Operations, reports, POS — no user/settings admin |
-| Cashier | POS, customers, sales |
-| Inventory Officer | Stock, purchases, product updates, returns — no POS or customer access |
+| Super Admin | Every shop feature, including shops, settings, and staff. Can switch shops |
+| Manager | Operations, reports, point of sale, staff accounts, and settings in their own shop |
+| Cashier | Point of sale, customers, and sales. Can view products and categories |
+| Inventory Officer | Stock, purchases, product updates, and returns — no point of sale or customer access |
 
-See [Authentication & roles](features/authentication-and-roles.md) for the full permission matrix.
+See [Authentication & roles](features/authentication-and-roles.md#roles) for what each role can do.
 
 ## Feature documentation
 
